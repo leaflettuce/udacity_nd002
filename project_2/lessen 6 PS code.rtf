@@ -1,0 +1,439 @@
+{\rtf1\ansi\deff0{\fonttbl{\f0\fnil\fcharset0 Calibri;}}
+{\*\generator Msftedit 5.41.21.2509;}\viewkind4\uc1\pard\sa200\sl276\slmult1\lang9\f0\fs22 Code for lessen 6 Problem sets\par
+Andrew Trick\par
+\par
+------------6.3\par
+\par
+#!/usr/bin/env python\par
+# -*- coding: utf-8 -*-\par
+"""\par
+Your task is to use the iterative parsing to process the map file and\par
+find out not only what tags are there, but also how many, to get the\par
+feeling on how much of which data you can expect to have in the map.\par
+The output should be a dictionary with the tag name as the key\par
+and number of times this tag can be encountered in the map as value.\par
+\par
+Note that your code will be tested with a different data file than the 'example.osm'\par
+"""\par
+import xml.etree.ElementTree as ET\par
+import pprint\par
+\par
+def count_tags(filename):\par
+        # YOUR CODE HERE\par
+    tags = \{\}\par
+    for event, elem in ET.iterparse(filename):\par
+        tag = elem.tag\par
+        if tag not in tags.keys():\par
+            tags[tag] = 1\par
+        else:\par
+            tags[tag] += 1\par
+    return tags\par
+\par
+def test():\par
+\par
+    tags = count_tags('example.osm')\par
+    pprint.pprint(tags)\par
+    assert tags == \{'bounds': 1,\par
+                     'member': 3,\par
+                     'nd': 4,\par
+                     'node': 20,\par
+                     'osm': 1,\par
+                     'relation': 1,\par
+                     'tag': 7,\par
+                     'way': 1\}\par
+\par
+    \par
+\par
+if __name__ == "__main__":\par
+    test()\par
+\par
+\par
+\par
+--------------------------6.7\par
+\par
+#!/usr/bin/env python\par
+# -*- coding: utf-8 -*-\par
+import xml.etree.ElementTree as ET\par
+import pprint\par
+import re\par
+"""\par
+Your task is to explore the data a bit more.\par
+Before you process the data and add it into MongoDB, you should\par
+check the "k" value for each "<tag>" and see if they can be valid keys in MongoDB,\par
+as well as see if there are any other potential problems.\par
+\par
+We have provided you with 3 regular expressions to check for certain patterns\par
+in the tags. As we saw in the quiz earlier, we would like to change the data model\par
+and expand the "addr:street" type of keys to a dictionary like this:\par
+\{"address": \{"street": "Some value"\}\}\par
+So, we have to see if we have such tags, and if we have any tags with problematic characters.\par
+Please complete the function 'key_type'.\par
+"""\par
+\par
+\par
+lower = re.compile(r'^([a-z]|_)*$')\par
+lower_colon = re.compile(r'^([a-z]|_)*:([a-z]|_)*$')\par
+problemchars = re.compile(r'[=\\+/&<>;\\'"\\?%#$@\\,\\. \\t\\r\\n]')\par
+\par
+\par
+def key_type(element, keys):\par
+    #keys = \{'lower' : 0, 'lower_colon' : 0, 'problemchars' : 0, 'other' : 0\}\par
+    if element.tag == "tag":\par
+        if re.search(lower, element.get('k')) is not None:\par
+            keys['lower'] += 1\par
+        elif re.search(lower_colon, element.get('k')) is not None:\par
+            keys['lower_colon'] += 1\par
+        elif re.search(problemchars, element.get('k')) is not None:\par
+            keys['problemchars'] += 1\par
+        else:\par
+            keys['other'] += 1\par
+            \par
+    return keys\par
+\par
+\par
+\par
+def process_map(filename):\par
+    keys = \{"lower": 0, "lower_colon": 0, "problemchars": 0, "other": 0\}\par
+    for _, element in ET.iterparse(filename):\par
+        keys = key_type(element, keys)\par
+        \par
+    return keys\par
+\par
+\par
+\par
+def test():\par
+    # You can use another testfile 'map.osm' to look at your solution\par
+    # Note that the assertions will be incorrect then.\par
+    keys = process_map('example.osm')\par
+    pprint.pprint(keys)\par
+    assert keys == \{'lower': 5, 'lower_colon': 0, 'other': 1, 'problemchars': 1\}\par
+\par
+\par
+if __name__ == "__main__":\par
+    test()\par
+\par
+\par
+\par
+\par
+------------------6.8\par
+\par
+#!/usr/bin/env python\par
+# -*- coding: utf-8 -*-\par
+import xml.etree.ElementTree as ET\par
+import pprint\par
+import re\par
+"""\par
+Your task is to explore the data a bit more.\par
+The first task is a fun one - find out how many unique users\par
+have contributed to the map in this particular area!\par
+\par
+The function process_map should return a set of unique user IDs ("uid")\par
+"""\par
+\par
+def get_user(element):\par
+    return\par
+\par
+\par
+def process_map(filename):\par
+    users = set()\par
+    for event, element in ET.iterparse(filename):\par
+        if element.get('uid') is not None:\par
+            uid = element.get('uid')\par
+            users.add(uid)    \par
+\par
+    return users\par
+\par
+\par
+def test():\par
+\par
+    users = process_map('example.osm')\par
+    pprint.pprint(users)\par
+    assert len(users) == 6\par
+\par
+\par
+\par
+if __name__ == "__main__":\par
+    test()\par
+\par
+\par
+---------------6.11\par
+\par
+\par
+"""\par
+Your task in this exercise has two steps:\par
+\par
+- audit the OSMFILE and change the variable 'mapping' to reflect the changes needed to fix \par
+    the unexpected street types to the appropriate ones in the expected list.\par
+    You have to add mappings only for the actual problems you find in this OSMFILE,\par
+    not a generalized solution, since that may and will depend on the particular area you are auditing.\par
+- write the update_name function, to actually fix the street name.\par
+    The function takes a string with street name as an argument and should return the fixed name\par
+    We have provided a simple test so that you see what exactly is expected\par
+"""\par
+import xml.etree.cElementTree as ET\par
+from collections import defaultdict\par
+import re\par
+import pprint\par
+\par
+OSMFILE = "example.osm"\par
+street_type_re = re.compile(r'\\b\\S+\\.?$', re.IGNORECASE)\par
+\par
+\par
+expected = ["Street", "Avenue", "Boulevard", "Drive", "Court", "Place", "Square", "Lane", "Road", \par
+            "Trail", "Parkway", "Commons"]\par
+\par
+# UPDATE THIS VARIABLE\par
+mapping = \{ "St": "Street",\par
+            "St.": "Street",\par
+            'Ave': 'Avenue',\par
+            'Rd': 'Road',\par
+            'Rd.' : 'Road'\par
+            \}\par
+\par
+\par
+def audit_street_type(street_types, street_name):\par
+    m = street_type_re.search(street_name)\par
+    if m:\par
+        street_type = m.group()\par
+        if street_type not in expected:\par
+            street_types[street_type].add(street_name)\par
+\par
+\par
+def is_street_name(elem):\par
+    return (elem.attrib['k'] == "addr:street")\par
+\par
+\par
+def audit(osmfile):\par
+    osm_file = open(osmfile, "r")\par
+    street_types = defaultdict(set)\par
+    for event, elem in ET.iterparse(osm_file, events=("start",)):\par
+\par
+        if elem.tag == "node" or elem.tag == "way":\par
+            for tag in elem.iter("tag"):\par
+                if is_street_name(tag):\par
+                    audit_street_type(street_types, tag.attrib['v'])\par
+\par
+    return street_types\par
+\par
+\par
+def update_name(name, mapping):\par
+    for i in mapping.keys():\par
+        if re.search(i, name):\par
+            name = re.sub(i+'$', mapping[i], name)  # learned +'$' on forums \par
+    return name\par
+\par
+\par
+def test():\par
+    st_types = audit(OSMFILE)\par
+    assert len(st_types) == 3\par
+    pprint.pprint(dict(st_types))\par
+\par
+    for st_type, ways in st_types.iteritems():\par
+        for name in ways:\par
+            better_name = update_name(name, mapping)\par
+            print name, "=>", better_name\par
+            if name == "West Lexington St.":\par
+                assert better_name == "West Lexington Street"\par
+            if name == "Baldwin Rd.":\par
+                assert better_name == "Baldwin Road"\par
+\par
+\par
+if __name__ == '__main__':\par
+    test()\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+\par
+-------6.12\par
+\par
+#!/usr/bin/env python\par
+# -*- coding: utf-8 -*-\par
+import xml.etree.ElementTree as ET\par
+import pprint\par
+import re\par
+import codecs\par
+import json\par
+"""\par
+Your task is to wrangle the data and transform the shape of the data\par
+into the model we mentioned earlier. The output should be a list of dictionaries\par
+that look like this:\par
+\par
+\{\par
+"id": "2406124091",\par
+"type: "node",\par
+"visible":"true",\par
+"created": \{\par
+          "version":"2",\par
+          "changeset":"17206049",\par
+          "timestamp":"2013-08-03T16:43:42Z",\par
+          "user":"linuxUser16",\par
+          "uid":"1219059"\par
+        \},\par
+"pos": [41.9757030, -87.6921867],\par
+"address": \{\par
+          "housenumber": "5157",\par
+          "postcode": "60625",\par
+          "street": "North Lincoln Ave"\par
+        \},\par
+"amenity": "restaurant",\par
+"cuisine": "mexican",\par
+"name": "La Cabana De Don Luis",\par
+"phone": "1 (773)-271-5176"\par
+\}\par
+\par
+You have to complete the function 'shape_element'.\par
+We have provided a function that will parse the map file, and call the function with the element\par
+as an argument. You should return a dictionary, containing the shaped data for that element.\par
+We have also provided a way to save the data in a file, so that you could use\par
+mongoimport later on to import the shaped data into MongoDB. You could also do some cleaning\par
+before doing that, like in the previous exercise, but for this exercise you just have to\par
+shape the structure.\par
+\par
+In particular the following things should be done:\par
+- you should process only 2 types of top level tags: "node" and "way"\par
+- all attributes of "node" and "way" should be turned into regular key/value pairs, except:\par
+    - attributes in the CREATED array should be added under a key "created"\par
+    - attributes for latitude and longitude should be added to a "pos" array,\par
+      for use in geospacial indexing. Make sure the values inside "pos" array are floats\par
+      and not strings. \par
+- if second level tag "k" value contains problematic characters, it should be ignored\par
+- if second level tag "k" value starts with "addr:", it should be added to a dictionary "address"\par
+- if second level tag "k" value does not start with "addr:", but contains ":", you can process it\par
+  same as any other tag.\par
+- if there is a second ":" that separates the type/direction of a street,\par
+  the tag should be ignored, for example:\par
+\par
+<tag k="addr:housenumber" v="5158"/>\par
+<tag k="addr:street" v="North Lincoln Avenue"/>\par
+<tag k="addr:street:name" v="Lincoln"/>\par
+<tag k="addr:street:prefix" v="North"/>\par
+<tag k="addr:street:type" v="Avenue"/>\par
+<tag k="amenity" v="pharmacy"/>\par
+\par
+  should be turned into:\par
+\par
+\{...\par
+"address": \{\par
+    "housenumber": 5158,\par
+    "street": "North Lincoln Avenue"\par
+\}\par
+"amenity": "pharmacy",\par
+...\par
+\}\par
+\par
+- for "way" specifically:\par
+\par
+  <nd ref="305896090"/>\par
+  <nd ref="1719825889"/>\par
+\par
+should be turned into\par
+"node_refs": ["305896090", "1719825889"]\par
+"""\par
+\par
+\par
+lower = re.compile(r'^([a-z]|_)*$')\par
+lower_colon = re.compile(r'^([a-z]|_)*:([a-z]|_)*$')\par
+problemchars = re.compile(r'[=\\+/&<>;\\'"\\?%#$@\\,\\. \\t\\r\\n]')\par
+\par
+created = [ "version", "changeset", "timestamp", "user", "uid"]\par
+\par
+\par
+def shape_element(element):\par
+    node = \{'created': \{\}, 'pos': [0.0, 0.0], 'address' : \{\}\}\par
+    if element.tag == "node" or element.tag == "way" :\par
+        if element.tag == 'node':\par
+            node['type'] = 'node'\par
+        else:\par
+            node['type'] = 'way'\par
+            \par
+        for key, val in element.attrib.items():\par
+            #print key, val\par
+            if key in created:\par
+                node['created'][key] = val\par
+            elif key == 'lat':\par
+                node['pos'][0] = val\par
+            elif key == 'lon':\par
+                node['pos'][1] = val    \par
+            else:\par
+                node[key] = val\par
+                \par
+        for tag in element.findall('tag'):\par
+            k = tag.get('k')\par
+            v = tag.get('v')\par
+            #print k, v\par
+            if re.search(problemchars, k) is None:\par
+                if ':' in k:\par
+                    if ':' in k[k.find(':')+1:]:\par
+                        pass\par
+                    elif k.startswith("addr:"):\par
+                        node['address'][k[5:]] = v\par
+                    else:\par
+                        node[k] = v\par
+                else:\par
+                        node[k] = v\par
+        pprint.pprint(node)\par
+        return node\par
+    else:\par
+        return None\par
+\par
+    \par
+def get_tags(element, node):\par
+    for child in element:\par
+            if child == 'tag':\par
+                print child.attrib.items()\par
+                #for k, v in child.attrib.items():\par
+                 #   print k,v\par
+\par
+def process_map(file_in, pretty = False):\par
+    # You do not need to change this file\par
+    file_out = "\{0\}.json".format(file_in)\par
+    data = []\par
+    with codecs.open(file_out, "w") as fo:\par
+        for _, element in ET.iterparse(file_in):\par
+            el = shape_element(element)\par
+            if el:\par
+                data.append(el)\par
+                if pretty:\par
+                    fo.write(json.dumps(el, indent=2)+"\\n")\par
+                else:\par
+                    fo.write(json.dumps(el) + "\\n")\par
+    return data\par
+\par
+def test():\par
+    # NOTE: if you are running this code on your computer, with a larger dataset, \par
+    # call the process_map procedure with pretty=False. The pretty=True option adds \par
+    # additional spaces to the output, making it significantly larger.\par
+    data = process_map('example.osm', True)\par
+    #pprint.pprint(data)\par
+    \par
+    assert data[0] == \{\par
+                        "id": "261114295", \par
+                        "visible": "true", \par
+                        "type": "node", \par
+                        "pos": [\par
+                          41.9730791, \par
+                          -87.6866303\par
+                        ], \par
+                        "created": \{\par
+                          "changeset": "11129782", \par
+                          "user": "bbmiller", \par
+                          "version": "7", \par
+                          "uid": "451048", \par
+                          "timestamp": "2012-03-28T18:31:23Z"\par
+                        \}\par
+                      \}\par
+    assert data[-1]["address"] == \{\par
+                                    "street": "West Lexington St.", \par
+                                    "housenumber": "1412"\par
+                                      \}\par
+    assert data[-1]["node_refs"] == [ "2199822281", "2199822390",  "2199822392", "2199822369", \par
+                                    "2199822370", "2199822284", "2199822281"]\par
+\par
+if __name__ == "__main__":\par
+    test()\par
+}
+ 
