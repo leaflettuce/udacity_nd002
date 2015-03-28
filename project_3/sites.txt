@@ -1,0 +1,19 @@
+Udacity.com
+GoodReads.com
+Kimonolabs.com
+
+
+
+Searched for particular problems on:
+
+Github
+stackoverflow
+cookbook-r.com
+ggplot docs
+
+
+
+Data Research:
+
+wikipedia: films based on fantasy novels.. etc
+imdb: best movies from books

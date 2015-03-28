@@ -1,0 +1,67 @@
+GoodReads.com Best Books Ever Dataset
+
+
+_______AQUIREMENT________
+
+-data was pulled from GoodReads user voted list of best books ever.
+
+-I used Kimonolabs.com to efficiently pull a list of all books voted on, then  extracted the data that interested me from each book's info page.
+
+-2.4% data loss in extraction
+
+
+
+
+______DESCRIPTION_____
+
+-30,583 books that were included in best books ever list on goodreads.com.
+
+-16 variables
+
+*rating
+-num (avg rating of book out of 5 stars)
+
+*votes
+-num (number of votes for book for best book ever)
+
+*isbn
+-factor (isbn of book)
+
+*author
+-factor (Authors name)
+
+*series
+-factor (string - series book is part of if any)
+
+*page_count
+-num (number of pages of book)
+
+*publisher
+-factor (publisher of book)
+
+*reviews
+-num (number of reviews on book)
+
+*setting
+- factor (string - setting in book if any)
+
+*awards
+- factor (awards recieved if any)
+
+*year
+- num (year of original release)
+
+*genre
+- factor (string - genre of book)
+
+*title
+-factor (string title of book)
+
+*rank
+-num (Rank on GoodReads list)
+
+*year.bucket
+-factor (year split into 8 levels)
+
+*part_of_series
+- boolean (if part of a series)

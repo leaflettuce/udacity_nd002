@@ -1,0 +1,1565 @@
+EDA of GoodReads Best Books Ever
+by
+Andy Trick  
+========================================================
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, packages}
+library(ggplot2)
+library(grid)
+library(gridExtra)
+library(plyr)
+library(dplyr)
+library(GGally)
+```
+  
+```{r echo=FALSE, Load_the_Data, message=F, warning=F}
+# Load the Data
+gr <- read.csv('gReads.csv')
+
+#setting data types
+gr$page_count <- as.numeric(gr$page_count)
+gr$reviews <- as.numeric(gr$reviews)
+gr$votes <- as.numeric(gr$votes)
+gr$rank <- as.numeric(rownames(gr))
+
+#just interested to see these specific series
+malazSubset <- gr[grep("Malazan", gr$title), ]
+lotrsubset <- gr[grep('Lord of the Rings', gr$title), ]
+
+#function to clean year data to a standard four digit num
+gr$year <- as.character(gr$year)
+
+substrRight <- function(x, n){
+  substr(x, nchar(x)-n+1, nchar(x))
+}
+
+gr$year <- substrRight(gr$year, 4)
+
+gr$year <- as.numeric(gr$year, na.rm=TRUE)
+
+#creating year.bucket to be able to split books into 
+#year categories.   Many more books in dataset from past 
+#25 years..   Split to even this out a little.
+gr$year.bucket <- cut(gr$year, 
+                      breaks = c(0, 1900, 1950, 
+                                 1980, 1990, 2000, 
+                                 2005, 2010, 2015))
+
+#subset of genres listed at least 500 times.
+genre.sub <- subset(gr, genre %in%  
+                      names(table(gr$genre))
+                    [table(gr$genre) >= 500])
+
+#after query found number of invalid entires for genre.  cleaning..
+genre.sub <- subset(genre.sub, genre %in%  
+                      names(table(gr$genre))
+                    [table(gr$genre) != 2866])
+
+
+#several books missing year. 
+#subset to alleviate this concern when needed
+year.sub <- subset(gr, !is.na(gr$year.bucket))
+
+#boolean for if book is part of a series or not
+gr$part_of_series <- gr$series != ''
+
+
+#more subsets for particular plots below.  
+
+#top 250 subset 
+top250 <- subset(gr, rank <= 250)
+#subset for top genre in top250 (above 5 entries needed)
+top250.genre <- subset(top250, genre %in%  
+                         names(table(top250$genre))
+                       [table(top250$genre) >= 5])
+
+#finding authors with most books released and in dataset (>50)
+author.sub <- subset(gr, author %in%  
+                       names(table(gr$author))
+                     [table(gr$author) >= 50])
+
+#cleaning author.sub to exclude 'Anon's'
+author.sub <- subset(author.sub, author != 'Anonymous')
+
+#subset to fantasy genre
+fantasy.sub <- subset(gr, genre == 'Fantasy')
+
+#subsetting publisher info (above 200 books)
+publisher.sub <- subset(gr, publisher %in%  
+                          names(table(gr$publisher))
+                        [table(gr$publisher) >= 200])
+
+#removing invalid publisher entries ex: ' ' and ''
+publisher.sub <- subset(publisher.sub, 
+                        publisher %in%  
+                          names(table(
+                            publisher.sub$publisher))
+                        [table(publisher.sub$publisher)<= 420])
+
+
+#some basic stats and exploration of data
+dim(gr)
+names(gr)
+str(gr)
+levels(gr$genre)
+levels(gr$year.bucket)
+summary(gr)
+```
+
+# Univariate Plots Section
+```{r echo=FALSE,  Univariate_Plots, message=F, warning=F}
+
+#Book release Years
+ggplot(aes(x = year), data = gr) +
+  geom_histogram(binwidth = 1) + 
+  xlim(1850,2015)  +
+  ylim(0,1100) +
+  ggtitle('Books released per Year (1850 - 2015)') +
+  xlab('Year') + 
+  ylab('Count')
+```
+  
+Taking a first look at The best books ever dataset.  It is not too surprising that the majority of the books on the list are more current.  Lets take a closer look:
+
+```{r echo=FALSE,  message=F, warning=F}
+#year (90-15)
+ggplot(aes(x = year), data = gr) +
+  geom_histogram(binwidth = 1) +
+  xlim(1990, 2015) +
+  ggtitle('Books released per Year (1990 - 2015)') +
+  xlab('Year') + 
+  ylab('Count') +
+  scale_y_continuous(labels = seq(0,1100, 200), 
+                     breaks = seq(0,1100,200),
+                     limits = c(0,1100))
+```
+  
+It appears there is a steady increase in book releases per year that peaks at almost 1100 books in 2011! to compare,  the average yearly entries for the 20 years before that is 545.5...  almost half.
+
+
+```{r echo=FALSE,  message=F, warning=F}
+#year MATH!
+nrow(subset(gr, year == 2011)) #2011
+nrow(subset(gr, year >= 1991 & year <= 2010))/20 #20 year mean
+```
+
+
+```{r echo=FALSE,  message=F, warning=F}
+#bucket split up of years
+ggplot(aes(x = year.bucket), data = year.sub) +
+  geom_histogram()+
+  ggtitle('Book Release Years grouped') +
+  xlab('Year category') + 
+  ylab('Count') +
+  coord_flip()
+```
+  
+one more histogram of book released based on the Year split applied earlier.
+
+```{r echo=FALSE,message=F, warning=F}
+#page count
+
+ggplot(aes(x = page_count), data = gr) +
+  geom_histogram(binwidth = 20)  +
+  ggtitle('Length of Book') +
+  xlab('Pages') + 
+  ylab('Count') +
+  scale_x_continuous(breaks = seq(0,1500, 200), 
+                     limits = c(0, 1500)) +
+  scale_y_continuous(breaks = seq(0,140, 25), 
+                     limits = c(0, 140))
+```
+  
+Average book length is between 200 and 500 pages.  
+
+```{r echo = FALSE,  message=F, warning=F}
+#zoomed in plot of length
+ggplot(aes(x = page_count), 
+       data = subset(gr, 
+                     page_count >= 200 & 
+                     page_count <= 500)) +
+  geom_histogram(binwidth = 10)  +
+  ggtitle('Book lengths between 200 and 400') +
+  xlab('Pages') + ylab('Count') +
+  scale_x_continuous(breaks = seq(200,500, 25), 
+                     limits = c(200, 500)) +
+  scale_y_continuous(breaks = seq(0,80, 10), 
+                     limits = c(0, 80))
+```
+  
+  A closer look shows the length of a book is most likely betwen275 and 340.  Do the top 250 books apply to this grouping?  That may help us determine if page length correlated any to popularity of a book. 
+
+```{r echo = FALSE, message=F, warning=F}
+
+#top250 books length
+ggplot(aes(x = page_count), data = top250) +
+  geom_histogram(binwidth = 50)  +
+  ggtitle('Length of Book (Top 250)') +
+  xlab('Pages') +
+  ylab('Count') +
+  scale_x_continuous(breaks = seq(100,600, 100), 
+                     limits = c(100, 600)) +
+  scale_y_continuous(breaks = seq(0,8, 1), 
+                     limits = c(0, 8))
+```
+  
+  It looks like the top 250 books from the dataset are pretty similiar to the entire population. There may be a slight increase in the overall numbers though. Lets look at summarys of the two groups.
+
+
+
+```{r echo = FALSE, message=F, warning=F}
+
+summary(gr$page_count)
+summary(top250$page_count)
+cor.test(gr$page_count, gr$rating)
+
+```
+
+  
+  So it looks like all across the board the top250 books have a slightly higher page count than the entire dataset.  There is a .10 positive correlation between length and average rating of a book.
+
+
+```{r echo = FALSE, message=F, warning=F}
+
+#genre counts
+
+ggplot(aes(x = genre), data = genre.sub) +
+  geom_histogram() + 
+  ggtitle('Top Genre Occurance') +
+  scale_y_continuous(breaks = seq(0,4000, 500), 
+                     limits = c(0, 4000)) +  
+    stat_bin(binwidth=1, geom="text", 
+             aes(label=..count.., color = 'orange'), 
+             hjust=1.05)  + 
+  coord_flip() + 
+  theme(legend.position = "none")
+```
+  
+  A look at the top genre occurances in the dataset. Any genre related plots from here out will only include genre's with atleast 500 occurances in the data. 
+
+Fiction and Fantasy are by far the most popular genres.  Romance and Young adult also see a surprisingly large population.
+
+```{r echo = FALSE, message=F, warning=F}
+#top 250 genres
+ggplot(aes(x = genre), data = top250.genre) +
+  geom_histogram() +
+  ggtitle('Genre of top 250') +
+  xlab('Genre')  +  
+    stat_bin(binwidth=1, geom="text", 
+             aes(label=..count.., color = 'orange'), 
+             hjust=1.05) +
+  coord_flip() + 
+  theme(legend.position = "none")
+```
+  
+  Interestingly,  when subsetting the top 250 ranked books, fantasy drops very low and classics take over the number one count.  Fiction stays popular while romance is nowhere on the list.
+
+```{r echo = FALSE, message=F, warning=F}
+#series?
+
+ggplot(aes(x = part_of_series), data = gr) +
+  geom_histogram() +
+  ggtitle('Series books vs Stand Alones') +
+  xlab('In a Series?') +
+    stat_bin(binwidth=1, geom="text", 
+             aes(label=..count.., color = 'orange'), 
+             hjust=1)  + 
+  coord_flip() + 
+  theme(legend.position = "none")
+
+#percentage math
+count(subset(gr, part_of_series == TRUE))/count(gr)
+```
+  
+  A look at how many books in the dataset are part of a series. Only around 3 percent.
+
+```{r echo = FALSE, message=F, warning=F}
+#author
+
+ggplot(aes(x = author),data = author.sub) +
+  geom_histogram() +
+  ggtitle('Authors with over 50 Books') +
+  scale_y_continuous(breaks = seq(0,70,10), 
+                     limits = c(0, 70)) +
+  coord_flip()
+```
+  
+  Top authors in the book list.  I'm very surprised to see 8 authors have over 50 books in the data.
+
+```{r echo = FALSE, message=F, warning=F}
+#publisher 
+
+ggplot(aes(x = publisher), data = publisher.sub) +
+  geom_histogram()  +
+  ggtitle('Publishers w/ over 200 Books') +
+  scale_y_continuous(breaks = seq(0,500,50), 
+                     limits = c(0, 500)) +
+  coord_flip()
+```
+  
+  Top Publishers.  Vintage Publishing has the most books on the list by a large margin at a count of 420.  The next highest, Penguin Books, has 92 fewer. 
+
+Althought techniquely different, if Penguin Books and Penguin Classics were combined,  Penguin would come in at 566 books on the list.
+
+```{r echo = FALSE, message=F, warning=F}
+
+#rating and votes (all, and top250)
+
+p1 = ggplot(aes(x = rating), data = gr) +
+  geom_histogram(bindwith = 2.5) +
+  xlim(2.5, 5) +
+  ggtitle('Rating') +
+  xlab('Rating / 5') + 
+  ylab('Count')
+
+p2 = ggplot(aes(x = votes), data = gr) +
+  geom_histogram(binwidth = 1000) +
+  ggtitle('Number of Voted') +
+  xlab('Votes') + 
+  ylab('Count')
+
+p1.250 = ggplot(aes(x = rating), data = top250) +
+  geom_histogram(bindwith = 2.5) +
+  xlim(2.5, 5) +
+  ggtitle('Rating (Top 250)') +
+  xlab('Rating / 5') +
+  ylab('Count')
+
+p2.250 = ggplot(aes(x = votes), data = top250) +
+  geom_histogram(binwidth = 1000) +
+  ggtitle('Number of Voted (Top 250)') +
+  xlab('Votes') + 
+  ylab('Count')
+
+grid.arrange(p1, p2, p1.250, p2.250, ncol = 2)
+
+```
+  
+Above are four histograms depicting what could be considered the popularity of a book.  Average rating (out of 5 stars), and number of votes for best book. 
+
+There is not much of a difference between the entire dataset and the top250 subset.  Rating tends to be between 3.5 and 4.5, while number of voted is pretty spread between 0 and 10,000.  The only notable outlier in the voted plots would be the 0 for the entire dataset.  This is due to a large amount of books at the end of the list having under 100 votes.
+
+
+
+# Univariate Analysis
+
+### What is the structure of your dataset?
+This Data was obtained from GoodReads.com's best books ever list. There are 30,583 books in the dataset with 14 features (rating, votes, isbn, author, series, page_count, publisher, reviews, setting, awards, year, genre, title, rank). I created two more variables (year.bucket and part.of.series.)  The variables isbn, author, series, publisher, setting, awards, genre, and year.bucket are factor variables.  part.of.series is a boolean. 
+
+Observations:
+-Most books are Not a part of a series.
+-The majority of books on the list are from the past 20 years.
+-median book length is 306 pages.
+-mean rating is 3.99.
+-there are 147 unique Genres.
+
+### What is/are the main feature(s) of interest in your dataset?
+The main feature of interest in this dataset are Genre. I am looking to discover any trends or patterns in peoples opinion of, and the popularity of, genre.
+
+### What other features in the dataset do you think will help support your investigation into your feature(s) of interest?
+Rank, rating, year, year.bucket, andpage_count are all important features to discover trends in genre.  Year will help me discover any differences over time between genres, while page count will assist in my interest in learning if length of books is different depending on genre.   Rank and Rating are both good values to determine popularity and opinion of a book.
+
+### Did you create any new variables from existing variables in the dataset? 
+I created two new variables: year.bucket, and part.of.series. Year.bucket was created to split the books into 8 similiar sized year categories.   Fewer years in the more current years to counteract the large amount of books released in the past 25 years.  Part.of.Series is a boolean determining if the book is a stand alone or part of a series.
+
+### Of the features you investigated, were there any unusual distributions? Did you perform any operations on the data to tidy, adjust, or change the form of the data? If so, why did you do this?
+Instead of changing the form of the data, I opted to use several different subsets of the original dataset.   This allowed me to keep a copy of the initial data, while also clean the data for specific purposes.
+
+   Author.sub, genre.sub, and publisher.sub are all subsets specific for each title.  for example: author.sub is a dataset of only authors with 50 or more books in the dataset.  genre.sub is similiar in that it is genres with atleast 200 occurances.  
+   
+   I also subset the top 250 ranked books to see if a more immediate pattern emerged from a smaller, but more popular, selection.  Along with these,  there are several more subsets split amongst specific genres. (example: sff.sub, fantasy.sub)
+
+
+# Bivariate Plots Section
+```{r echo=FALSE, Bivariate_Plots, message=F, warning=F}
+
+#excluding 5 star ratings. (inproper title names..)
+
+#page count rating
+ggplot(aes(x = page_count, y = rating), data = gr) +
+  geom_point(alpha = .2) +
+  ylim(2.5, 4.99) +
+  xlim(2, 1500) +
+  stat_smooth() +
+  ggtitle('Rating by Page count') +
+  ylab('Rating') + 
+  xlab('Pages')
+```
+  
+  Plotting Length(page count) by Rating shows a slight positive correlation between the two. 
+```{r echo = FALSE, message=F, warning=F}
+cor.test(gr$page_count,gr$rating) 
+```
+
+
+```{r echo = FALSE, message=F, warning=F}
+
+#rank page count
+ggplot(aes(x = rank, y = page_count), data = gr) +
+  geom_point(alpha = .25) +
+  ylim(0, 1500) +
+  stat_smooth() +
+  ggtitle('Page count by Rank') +
+  xlab('rank') + 
+  ylab('Pages')
+```
+  
+  There seems to be a slight correlation between rank and page count as well.  This was expected after earlier finding the top 250 ranked books were typically longer.  How correlated?
+
+```{r echo = FALSE, message=F, warning=F}
+cor.test(gr$rank, gr$page_count)
+```
+  
+  cor = .12    The negative must be reversed becasue rank is 'higher' the lower the number.
+
+```{r echo = FALSE, message=F, warning=F}
+
+#votes by pages
+ggplot(aes(x = page_count, y = votes), data = gr) +
+  geom_point(alpha = .2)  +
+  xlim(2, 1500) +
+  ggtitle('Votes by Page count') +
+  ylab('votes') + 
+  xlab('Pages')
+```
+  
+Votes by Length does not show any pattern. The only thing this plot shows is that most books qre between 200 and 500 pages. Expect all plots with votes included to not depict any trends due to not being correlated to the data in any particular way.  
+
+```{r echo = FALSE, message=F, warning=F}
+
+#genre and pages
+ggplot(aes(x = genre, y = page_count), data = genre.sub) +
+  geom_boxplot() +
+  ylim(2, 1000) +
+  stat_smooth() +
+  ggtitle('Page count by genre') +
+  ylab('Pages') + 
+  xlab('Genre') +
+  coord_flip()
+```
+  
+  Here is something I was setting out to discover;  Are particular genres typically longer of shorter than others?   
+
+  In our dataset the genres History, Historical Fiction, and Fantasy are on average longer than most.  Children books are, very predictably, the shortest.   
+```{r echo = FALSE, message=F, warning=F} 
+#summarys of lengths
+summary(gr$page_count) 
+summary(subset(gr, genre == 'History')$page_count)
+```
+  
+  Above shows a summary of length for the dataset followed by a summary of only History books length.  
+
+```{r echo = FALSE,message=F, warning=F}
+#genre and votes
+ggplot(aes(x = genre, y = votes), data = genre.sub) +
+  geom_bar(stat = 'summary', 
+           fun.y = 'mean') +
+  stat_smooth() +
+  ggtitle('Avg. Votes by Genre') +
+  ylab('votes') + 
+  xlab('Genre') +
+  coord_flip()
+```
+  
+  Still votes values do not show any pattern or trend to the data.
+
+```{r echo = FALSE, message=F, warning=F}
+#genre rating
+ggplot(aes(x = genre, y = rating), data = genre.sub) +
+  geom_jitter(alpha = .1)  +
+  geom_point(stat = 'summary', 
+             fun.y = 'mean') +
+  stat_smooth() +
+  ggtitle('Rating by genre') +
+  ylab('Rating') + 
+  xlab('Genre') +
+  coord_flip()
+
+#boxplot of above
+ggplot(aes(x = genre, y = rating), data = genre.sub) +
+  geom_boxplot() +
+  ylim(2, 4.99) +
+  stat_smooth() +
+  ggtitle('Rating by genre') +
+  ylab('Rating') + 
+  xlab('Genre') +
+  coord_flip()
+```
+  
+  A scatterplot and boxplot of genre by average rating.  All genres are typically around the 4 star rating.  Sequential Art is abnormally high.  
+
+```{r echo = FALSE, message=F, warning=F}
+#genre rank
+ggplot(aes(x = genre, y = rank), data = genre.sub) +
+  geom_jitter(alpha = .15)  +
+  geom_point(stat = 'summary', 
+             fun.y = 'mean') +
+  ggtitle('Rank by genre') +
+  ylab('Rank') + 
+  xlab('Genre') +
+  coord_flip()
+
+ggplot(aes(x = genre, y = rank), data = genre.sub) +
+  geom_boxplot()   +
+  ggtitle('Rank by genre') +
+  ylab('Rank') + 
+  xlab('Genre') +
+  coord_flip()
+```
+  
+  A scatterplot and boxplot of the same data: Rank by genre.  The scatterplot allows us to determine that there are very few classics in the data.  There is fewer of them, but they are on average ranked in the upper places.  27% of the classics are under 2000 on the list.  
+
+```{r echo = FALSE, message=F, warning=F}
+coc <- count(subset(subset(gr, genre == 'Classics'), rank <= 2000))
+co <- count(subset(gr, genre == 'Classics'))
+#math for discovering percentage of classics under 2000 rank
+coc/co
+```
+  
+  In the same scatterplot we can determine that Romance novels populate the end of the list more heavily than other genres.
+
+The boxplot allows us the see that History and Childrens are on average lower on the list than most.  It is interesting to see that romance is in the middle of the boxplot, while with the scatterplot we can see most of them are ranked very low.   Are there a few Romance novels ranked very high to counteract this?
+
+```{r echo = FALSE, message=F, warning=F}
+#rank and rating by genre  (top[250])
+n1 <- ggplot(aes(x = genre, y = rank), 
+             data = top250.genre) +
+  geom_boxplot()   +
+  ggtitle('Rank by genre (top 250)') +
+  ylab('Rank') + 
+  xlab('Genre') +
+  coord_flip()
+
+n2 <- ggplot(aes(x = genre, y = rating), 
+             data = top250.genre) +
+  geom_boxplot() +
+  ylim(2, 4.99) +
+  ggtitle('Rating by genre (top 250)') +
+  ylab('Rating') + 
+  xlab('Genre') +
+  coord_flip()
+
+n3 <- ggplot(aes(x = genre, y = rank), 
+             data = genre.sub) +
+  geom_boxplot()   +
+  ggtitle('Rank by genre') +
+  ylab('Rank') + 
+  xlab('Genre') +
+  coord_flip()
+
+n4 <- ggplot(aes(x = genre, y = rating), 
+             data = genre.sub) +
+  geom_boxplot() +
+  ylim(2, 4.99) +
+  ggtitle('Rating by genre') +
+  ylab('Rating') + 
+  xlab('Genre') +
+  coord_flip()
+
+  grid.arrange(n1, n2, n3, n4, ncol = 2)
+
+```
+  
+  Does a higher rating correlate to a better rank?  
+Interestingly,  No.  
+
+In both categories,  top250 and the entire dataset,  The higher ranked genres are not the higher rated.  This is completely unexpected.
+```{r echo = FALSE, message=F, warning=F}
+#rank and mean rating
+
+ggplot(aes(x = rank, y = rating), data = gr) +
+  geom_jitter(alpha = .075)+
+  stat_smooth() +
+  xlim(0, 30000) +
+  ylim(2.5, 4.99)+
+  ggtitle('Rating by Rank') +
+  xlab('Rank') +
+  ylab('Rating')
+
+cor.test(gr$rating, gr$rank)
+```
+  
+  There is a very very slight positive correlation between rating and rank.  (again reverse the negative on the cor.test)
+
+```{r echo = FALSE, message=F, warning=F}
+#rating via review count
+
+ggplot(aes(x = reviews, y = votes), data = gr) +
+  geom_jitter(alpha = .1)+
+  stat_smooth() +
+  ggtitle('votes by reviews') +
+  xlab('reviews') +
+  ylab('Votes')
+```
+  
+  This is weird. Why are the reviews by votes plotted into a column type image?  
+
+Once again,  votes shows nothing informative about the data.
+
+```{r echo = FALSE, message=F, warning=F}
+#year by pages
+ggplot(aes(x = year, y = page_count), data = gr) +
+  geom_jitter(alpha = .15) +
+  xlim(1800, 2015) +
+  ylim(20, 1000) +
+  stat_smooth() +
+  ggtitle('Book length(pages) by Year') +
+  xlab('Year') +
+  ylab('Pages')
+```
+  
+  Is there a relation between length of book and the year it was released?   Over the past 200 year there does not seemt to be a pattern.  What if we cut this down to books from 2000 and later?
+
+```{r echo = FALSE, message=F, warning=F}
+#cut since 2000
+ggplot(aes(x = year, y = page_count), data = gr) +
+  geom_jitter(alpha = .5) +
+  xlim(2000, 2015) +
+  ylim(20, 1000) +
+  stat_smooth()  +
+  ggtitle('Book length (pages) by Year(post 2000)') +
+  xlab('Year') +
+  ylab('Pages')
+```
+  
+  There is a very slight downward slope on length over the past 15 years.
+
+```{r echo = FALSE, message=F, warning=F}
+#year and rating
+ggplot(aes(x = year, y = rating), data = gr) +
+  geom_jitter(alpha = .025) +
+  xlim(1500, 2015) +
+  ylim(2,4.99) +
+  ggtitle('Rating by Year') +
+  xlab('Year') +
+  ylab('Rating') 
+```
+  
+  Too far out to get any information.  Lets cut to year 1950 to current.
+
+```{r echo = FALSE, message=F, warning=F}
+#current
+ggplot(aes(x = year, y = rating), data = gr) +
+  geom_jitter(alpha = .04) +
+  xlim(1950, 2015) +
+  ylim(2,4.99) +
+  ggtitle('Rating by Year') +
+  xlab('Year') +
+  ylab('Rating') +
+  stat_smooth()
+```
+  
+  at first look it appears that more current books are better quality (higher rating).  This is probably just due to the majority of books in the data releasing more recently. 
+
+```{r echo = FALSE, message=F, warning=F} 
+#cor.test of subset 1950 and later
+after1950 <- subset(gr, year >= 1950)
+cor.test(after1950$year, after1950$rating)
+```
+
+
+```{r echo = FALSE, message=F, warning=F}
+#year and rank
+ggplot(aes(x = year, y = rank), data = gr) +
+  geom_jitter(alpha = .05)  + 
+  xlim(1950, 2015) +
+  ggtitle('Rank by Year') +
+  xlab('Year') +
+  ylab('Rank')
+```
+  
+  Nothing interesting here,  just more proof that more books were released after 2000.
+
+
+```{r echo = FALSE, message=F, warning=F}
+#year and genre
+ggplot(aes(x = genre, y = year), data = genre.sub) +
+  geom_boxplot() + 
+  ylim(1850, 2015) +
+  stat_smooth() +
+  ggtitle('Year by genre') +
+  ylab('Year') + 
+  xlab('Genre') +
+  coord_flip()
+
+#switched
+ggplot(aes(x = year, y = genre), data = genre.sub) +
+  geom_jitter(alpha = .075) + 
+  xlim(1850, 2015)  +
+  ggtitle('Year by genre') +
+  ylab('Genre') + 
+  xlab('Year')
+```
+  
+  A look at genre trends over the years.   A classic most likely was released between 1850 and 1920.  Almost nothing considered a classic after the year 1950. 
+
+It is interesting that there are no outliers of sequential art before the year 1930.  History, Young Adult and Romance could also be considered 'newer' genres.  
+
+```{r echo = FALSE, message=F, warning=F}
+#more current
+ggplot(aes(x = genre, y = year), data = genre.sub) +
+  geom_boxplot() + 
+  ylim(2000, 2015) +
+  stat_smooth() +
+  ggtitle('Year by genre(post 2000)') +
+  ylab('Year') + 
+  xlab('Genre') +
+  coord_flip()
+```
+  
+  Nothing too informative here. 
+
+```{r echo = FALSE, message=F, warning=F}
+
+#publisher rating
+ggplot(aes(x = publisher, y = rating), data = publisher.sub) +
+  geom_jitter(alpha = .25) +
+  ylim(2,4.99) +
+  ggtitle('Rating by Publisher') +
+  xlab('Publisher') +
+  ylab('Rating')
+
+ggplot(aes(x = publisher, y = rating), data = publisher.sub) +
+  geom_boxplot(alpha = .5) +
+  ylim(2,4.99) +
+  ggtitle('Rating by Publisher') +
+  xlab('Publisher') +
+  ylab('Rating')
+
+
+```
+  
+  Publisher does not have much of an effect on rating.  Createspace has a smaller above average mean rating.
+# Bivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the investigation. How did the feature(s) of interest vary with other features in the dataset?
+There is a definitive difference in the typical rating and rank scores dependant on genre type. 
+
+Although they have the highest mean rank, Classical books have the lowest average rating.  The History and Sequential Art categories have both high rating averages and some of the best overall rankings.Oddly, when subset to the top 250 books ever,  These two categories dont make it on the list once.  
+
+Genre's also seem to become more popular at different times over the years. Classics are released almost solely before the 1920's.  The same time fiction books started to become popular. Several categories (young adult, squen art, history, romance, and mystery) saw a huge increase in popularity in the 1990s which continues to our current date.
+
+The length of a book also seems to have a small correlation with genre type.  History Books tend to be the longest in our dataset while children's books are, unsurprisingly, the shortest.  
+
+
+### Did you observe any interesting relationships between the other features (not the main feature(s) of interest)?  
+It appears the length of a book has a small effect on standard public opinion.  In the dataset,  on average the longer a book is,  the higher its rating and better its rank. 
+
+Although the Publisher does not seem to have any significant trends in the data,  People seem to enjoy 'Createspace' books more than others.
+
+### What was the strongest relationship you found?
+The strongest relationship in the GoodReads.com best books ever dataset is the length of a book, and the rank of that book. Page_count to rank is negatively correlated at around  -0.12.  Could this partially be do to certain genres typically being longer than others?
+
+# Multivariate Plots Section
+
+```{r echo=FALSE,fig.width=16, fig.height=12, Multivariate_Plots, message=F, warning=F}
+#set theme, seed, and clean up the subset to only numerical values.
+#tried to include facotrs but froze R every time
+
+ set.seed(1138)
+ gr_subset <- gr[ , c(0:15)]
+ gr_subset$isbn <- NULL
+ gr_subset$series <- NULL
+ gr_subset$setting <- NULL
+ gr_subset$awards <- NULL
+ gr_subset$author <- NULL
+ gr_subset$publisher <- NULL
+ gr_subset$title <- NULL
+ gr_subset$genre <- NULL
+
+#categories in ggpairs plot
+ names(gr_subset)
+
+#now to plot it
+ ggpairs(gr_subset[sample.int(nrow(gr_subset), 1000),  ])
+```
+  
+  Everything has a very small correlation.  I has assumed that there would be more trends and patterns in the dataset.
+
+
+```{r echo = FALSE, message=F, warning=F}
+#year and page count by genre
+ggplot(aes(x = page_count, 
+           y = genre, 
+           color = year), 
+       data = subset(genre.sub, 
+                     year > 1850)) +
+  geom_jitter() + 
+  xlim(0,650) +
+  ggtitle('Length by Year for Genre') +
+  xlab('Pages') + 
+  ylab('Genre') +
+  scale_colour_gradient(limits=c(1850, 2015), 
+                        low="red")
+```
+  
+  Young Adult, Romance, and Fantasy are more currently populated. (majority of input from those genres come from after 2000.) 
+
+```{r echo = FALSE, message=F, warning=F}
+#current
+ggplot(aes(x = page_count, 
+           y = genre, 
+           color = year), 
+       data = subset(genre.sub, 
+                     year > 2000)) +
+  geom_jitter(size = 3) + 
+  xlim(0,650) +
+  ggtitle('Length by Year for Genre(post 2000)') +
+  xlab('Pages') + 
+  ylab('Genre') +
+  scale_colour_gradient(limits=c(2000, 2015), 
+                        low="red")
+```
+  
+  No visible trend or pattern here.
+
+```{r echo = FALSE, message=F, warning=F}
+#facet
+ggplot(aes(x = year, y = page_count), 
+       data = genre.sub) +
+  geom_jitter(alpha = .25) + 
+  ylim(0,800) + 
+  xlim(1850, 2015) +
+  facet_wrap(~genre) +
+  ggtitle('Length by Year(split by Genre)') +
+  ylab('Pages') + 
+  xlab('Year')
+```
+  
+  Unfortunately no new information from this facet regarding length. What about rank or rating?
+
+```{r echo = FALSE, message=F, warning=F}
+
+#rank
+ggplot(aes(x = page_count, y = rank), 
+       data = genre.sub) +
+  geom_jitter(alpha = .25) + 
+  xlim(20, 800) +
+  facet_wrap(~genre) +
+  ggtitle('Rank by Length (split by Genre)') +
+  ylab('Rank') + 
+  xlab('Pages')
+
+#rating
+ggplot(aes(x = page_count, y = rating), 
+       data = genre.sub) +
+  geom_jitter(alpha = .25) + 
+  xlim(20, 800) + 
+  ylim(2, 4.99) +
+  facet_wrap(~genre) +
+  ggtitle('Rating by Length (split by Genre)') +
+  ylab('Rating') + 
+  xlab('Pages') +
+  stat_smooth()
+```
+  
+With such a low correlation it is hard to determine minor significance in the plots.  Sci-fi and Seq. art books are Ranked slightly better the shorter they are.  Long Fantasy book are typically ranked better.
+
+Regarding rating:  Myster and Historical Fiction are even across the board.  All other genres tend to have a slight positive relations between length and rating.  This is especially seen in seq. art.
+
+```{r echo = FALSE, message=F, warning=F}
+# page count and rank with genre
+ggplot(aes(x = rank, 
+           y = page_count, 
+           color = genre), 
+       data = genre.sub) + 
+  geom_point(alpha = .5) +
+  ylim(0, 1500) +
+  ggtitle('Page count by Rank') +
+  xlab('rank') + 
+  ylab('Pages')
+```
+  
+This is a mess.   WIll the same graph with year bucket instead of genre show anything?
+
+```{r echo = FALSE, message=F, warning=F}
+#rank and pages by year.bucket
+ggplot(aes(x = page_count, 
+           y = rank), 
+       data = gr) +
+  geom_jitter(alpha = .5) +
+  xlim(0, 1500) +
+  xlim(0, 800) +
+  ggtitle('Page count by Rank, year.bucket facet') +
+  xlab('pages') + 
+  ylab('rank') +
+  facet_wrap(~year.bucket)
+```
+
+  
+This also is very noisy and hard to read.  There doesnt seem to be any correlation between length and rank in regards to genre or year released. 
+
+```{r echo = FALSE, message=F, warning=F}
+#genre and rating by year.bucket
+ggplot(aes(x = genre, 
+           y = rating, 
+           color = genre), 
+       data = genre.sub) +
+  geom_boxplot() +
+  ylim(2, 4.99)  +
+  ggtitle('Rating by genre (split by Year)') +
+  ylab('Rating') + 
+  xlab('Genre') +
+  facet_wrap(~year.bucket) +
+  theme(axis.text.x = element_blank())
+```
+  
+In the 90's Sequential Art jumped up in average rating.   Childrens books do the same for the years 2005 - 2010. Sci-fi books slightly increase in ratings over the years. 
+```{r echo = FALSE, message=F, fig.width=12, fig.height=12,warning=F}
+#genre by rank w/ year
+ggplot(aes(x = genre, 
+           y = rank), 
+       data = subset(genre.sub, 
+                     year >= 1850)) +
+  geom_jitter(alpha = .1) +
+  ggtitle('Rank by Genre w/ Year') +
+  xlab('Genre') +
+  ylab('Rank') +
+  coord_flip() +
+  facet_wrap(~year.bucket)
+```
+  
+Romance books are typically ranked higher the more recent they are.  Classics adhere to the opposite. Fantasy and Fiction are all over the place. Lets look at last 30 years.
+```{r echo = FALSE,message=F, warning=F}
+#genre by rank w/ year.bucket past 2000
+ggplot(aes(x = genre, 
+           y = rank,
+           color = year), 
+       data = subset(genre.sub, 
+                     year >= 1985)) +
+  geom_jitter(alpha = .25) +
+  ggtitle('Rank by Genre w/ Year') +
+  xlab('Genre') +
+  ylab('Rank') +
+  coord_flip() +
+  scale_colour_gradient(limits=c(1985, 2015), 
+                        low="red")
+```
+  
+High ranked Young adult and Romance books are typically from the past 10 years.   Fantasy books from around 1995 to 2005 seem to be the most popular for their genre.  Sci-fi hits seem to have a gap and highly ranked one are either from the 80's or after 2010.
+
+```{r echo = FALSE, message=F, warning=F}
+#rating and year split by genre
+ggplot(aes(x = year, 
+           y = rating), 
+       data = genre.sub) +
+  geom_jitter(alpha = .025) +
+  ylim(2, 4.99)  +
+  xlim(1900, 2015) +
+  ggtitle('Rating by Year (split by Genre)') +
+  ylab('Rating') + 
+  xlab('Year') +
+  facet_wrap(~genre) 
+```
+  
+Fiction books dip in rating slightly after 1975.  
+```{r echo = FALSE,message=F, warning=F}
+#genre by rank w/ year.bucket past 2000
+ggplot(aes(x = genre, 
+           y = rating,
+           color = year), 
+       data = subset(genre.sub, 
+                     year >= 1985)) +
+  geom_jitter(alpha = .15) +
+  ggtitle('Rating by Genre w/ Year') +
+  xlab('Genre') +
+  ylab('Rating') +
+  coord_flip() +
+  scale_colour_gradient(limits=c(1985, 2015), 
+                        low="red")
+```
+  
+High ranked Romance are from the post 2010's.  High rated fiction tends to be from 80's and 90's.
+
+
+```{r echo = FALSE, fig.width=16, fig.height=12,message=F, warning=F}
+#IMPORTANT                    <<<<<<<<<<<<<<<<<<<<<<<<<<<
+#Books release by year by Genre
+ggplot(aes(x = year), data = genre.sub) +
+  geom_histogram(binwidth = 1) + 
+  xlim(1985,2014)  +
+  ylim(0,210) +
+  ggtitle('Books released per Year(split by genre)') +
+  xlab('Year') + 
+  ylab('Count') +
+  facet_wrap(~genre)
+```
+  
+Since 2000 there is a large increase in Fantasy, Romance, Sequential Art, and Young Adult.  Of these, both Romance and Fantasy see a huge spike in popularity from 2010 to current.
+
+
+```{r echo = FALSE, message=F, warning=F}
+#subset to fant, rom, and YA
+fry <- subset(gr, genre == 'Romance' | 
+         genre == 'Fantasy' | 
+         genre == 'Young Adult')
+
+fry <- subset(fry, year >= 1985)
+
+#summarizing fry data
+fry.sub <- fry %>%  #group and apply some math
+  group_by(year, genre) %>%  
+  filter(!is.na(year)) %>%  #filter out na's
+  summarize(rank = round(mean(rank)), #average rank
+            count = n()) %>%  
+  arrange(year)
+
+```
+
+```{r echo = FALSE, message=F, warning=F}
+#line graph of subset genres with large increases recently
+ggplot(aes(x = year, 
+           y = count, 
+           color = genre), 
+       data = subset(fry.sub, 
+                     year < 2013)) +
+  geom_line(size = 1.5)  + 
+  geom_point()
+```
+  
+There is a massive increase in Fantasy, Young Adult, and Romance Novels starting around the early 2000's.   Could this reason for this be do to popularity of the genres in mainstream media such as movies or tv series?
+
+```{r echo = FALSE, message=F, warning=F}
+#making custom DF for movie research
+movie_titles <- c('Lord of the Rings', 'Harry Potter', 
+            'Twilight', 'Chronicles of Narnia',
+            'Notebook', 'PS I Love You',
+            'Pride and Prejudice')
+movie_years <- c(2001, 2001, 
+           2008, 2005,
+           2004, 2007,
+           2005)
+ 
+movie_genre <- c('Fantasy', 'Fantasy',
+           'Young Adult', 'Young Adult',
+           'Romance', 'Romance', 
+           'Romance')
+
+movies_df <- data.frame(movie_titles, movie_years, movie_genre)
+
+#exploration and checking data
+str(movies_df)
+dim(movies_df)
+movies_df$movie_titles
+```
+  
+After researching mainstream movie hits from the 2000's that where based on novels, 7 movies stood out to me.  These incorperate the three genres in question.
+
+```{r echo = FALSE, message=F, warning=F}
+ggplot(aes(x = movie_years, y = movie_genre,
+           color = movie_genre), data = movies_df) +
+  geom_jitter(size = 7.5) +
+  ggtitle('Year of Movie based on novel Release') +
+  xlab('Year') +
+  ylab('Genre')
+```
+  
+A simple scatterplot of the year release for movies based on books.  I will eplore this data and possible relationship to literature genre popularity more in the final plot section.
+
+```{r echo = FALSE, message=F, warning=F}
+fant2000 <- subset(gr, genre == 'Fantasy')
+fant2000 <- subset(fant2000, year == 2000)
+fant2002 <-subset(gr, genre == 'Fantasy')
+fant2002 <- subset(fant2002, year == 2002)
+count(fant2000)   #57
+count(fant2002)   #77
+77/57    #percent increase after fant movie releases is 35%
+```
+Fantasy novel count released in 2000 was 57.  The year 2002, after the release year of Lord of the Rings and Harry Potter, saw 77 releases for fantasy..  a 35% increase!   It  would unfortunately take much more data and research to discover if this is correlated or just coincidental. 
+
+
+```{r echo = FALSE, message=F, warning=F}
+
+#Genre by Year w/ Rank color
+ggplot(aes(x = genre, 
+           y = year,
+           color = rank), 
+       data = genre.sub) +
+  geom_jitter(alpha = .1) + 
+  ylim(1850, 2015) +
+  ggtitle('Year and Rank by Genre') +
+  ylab('Year') + 
+  xlab('Genre')+
+  scale_size("Rank",breaks=c(1,10000,20000,30000),
+             labels=c(30000,20000,10000,1)) +
+  coord_flip() +
+  scale_colour_gradient(limits=c(0, 30000), 
+                        low="red")
+```
+  
+above is basically putting an earlier facet onto one graph via color.  same results.
+
+```{r echo = FALSE, message=F, warning=F, fig.width = 12 }
+
+#sff over buckets
+genre.page <- genre.sub %>%  #grouping together
+  group_by(year.bucket, genre) %>% #by year bucket and genre
+  filter(!is.na(year.bucket)) %>%
+  filter(!is.na(genre)) %>%    #filters out na's
+  filter(!is.na(page_count)) %>%
+  summarize(avg_page_count = round(mean(page_count)), #mean length
+            avg_rank = round(mean(rank)), #mean rank
+            avg_rating = round(mean(rating)), #mean rating
+            count = n()) %>% #count
+  ungroup() %>%
+  arrange(year.bucket)
+
+sff.sub <-subset(genre.page,   #subset to fantasy or scifi
+                 genre == 'Fantasy' | 
+                   genre == 'Science Fiction')
+                 
+#ploting fant vs scifi
+ggplot(aes(x = year.bucket, 
+           y = avg_rank, 
+           color = genre), 
+       data = sff.sub) +
+  geom_point(aes(size = avg_page_count)) +
+  geom_line(aes(group=genre))+
+  ggtitle('Rank over Years for Fantasy and Scifi') +
+  xlab('Year') +
+  ylab('Average Rank') 
+```
+  
+Plotting Fantasy vs scifi over the years by average rank.  The size of the point relates to average length of book.
+
+Both saw a dip in high ranked books between 1980 and 2000.  
+```{r echo = FALSE, message=F, warning=F, fig.width = 12}
+ggplot(aes(x = year.bucket, 
+           y = count, 
+           color = genre), 
+       data = sff.sub) +
+  geom_point(aes(size = avg_rating)) +
+  geom_line(aes(group=genre))+
+  ggtitle('Fantasy and Scifi releases per year') +
+  xlab('Year') +
+  ylab('Count')
+```
+  
+Fantasy books Spike in current years.  Scifi saw a lot of releases between 50s and 80s, then drops in count until recent years.
+
+```{r echo = FALSE, message=F, warning=F}
+#Overall Value = rating/rank
+
+# Popularity vs quality. 
+ggplot(aes(x = year,
+           y = rating/rank), 
+       data = gr) +
+  geom_jitter(alpha = .025) +
+  xlim(1850, 2015) + 
+  ylim(0, .005) +
+  ggtitle('Value over Time') + 
+  ylab('Value')+ 
+  xlab('Year')
+```
+  
+Overall Valuse of a Book is determined by Rating/Rank.  This allows for a value that is based on The rating of a book weighed by its rank.
+
+There is a positive increase in value over time.
+
+```{r echo = FALSE, message=F, warning=F}
+#value by year by genre
+ggplot(aes(x = year,
+           y = rating/rank), 
+       data = genre.sub) +
+  geom_jitter(alpha = .015) +
+  xlim(1850, 2015) + 
+  ylim(0, .005) +
+  ggtitle('Value over Time by genre') + 
+  ylab('Value')+ 
+  xlab('Year') + 
+  facet_wrap(~genre)
+```
+  
+All genres aside from history and childrens books see an increase in value in the past 10 years, especially mystery and horror.
+
+Is value affected by the length of a book?
+```{r echo = FALSE, message=F, warning=F}
+#value of length by genre
+ggplot(aes(x = page_count,
+           y = rating/rank), 
+       data = genre.sub) +
+  geom_jitter(alpha = .1) +
+  xlim(0, 800) + 
+  ylim(0, .015) +
+  ggtitle('Value over Length') + 
+  ylab('Value')+ 
+  xlab('Pages') +
+  facet_wrap(~genre)
+```
+  
+Most books seem to have the largest grouping of positive outliers at between 300 and 400 pages.
+
+```{r echo = FALSE, message=F, warning=F}
+#value over time with length
+ggplot(aes(x = year,
+           y = rating/rank, 
+           color = page_count), 
+       data = subset(gr, 
+                     page_count < 700)) +
+  geom_jitter(alpha = .4) +
+  xlim(1850, 2015) + 
+  ylim(0, .005) +
+  ggtitle('Value over Year by Length') + 
+  ylab('Value')+ 
+  xlab('year') +
+  scale_colour_gradient(limits=c(0, 700), 
+                        low="orange")
+```
+  
+It was rare for books before the 1900s to be longer than 500 pages.
+
+```{r echo = FALSE, message=F, warning=F}
+value.sub <- genre.sub %>%  #grouping genre sub to add value
+  group_by(year.bucket, genre) %>%  
+  filter(!is.na(year.bucket)) %>%  #filter out na's
+  filter(!is.na(genre)) %>%
+  filter(!is.na(page_count)) %>%
+  summarize(page_count = round(mean(page_count)), #average length
+            rank = round(mean(rank)), #average rank
+            rating = round(mean(rating)), #average Rating
+            value = mean(rating/rank), #average value
+            count = n()) %>% 
+  ungroup() %>%
+  arrange(year.bucket)
+
+#plot value by genre color of year bucket.
+ggplot(aes(x = genre, 
+           y = value, 
+           fill = year.bucket), 
+       data = value.sub) + 
+  geom_bar(stat = 'identity') +
+  ylim(0,.05) +
+  ggtitle('total average value for genre (colored by year group)') +
+  xlab('Genre') + 
+  ylab('Value') +
+  coord_flip()
+
+```
+  
+This histogram adds the mean of value based on year bucket for each genre.  Childrens books have the highest value over time.  Is this because there are fewer childrens books with higher average values?  
+Maybe the only childrens books that made it onto the list are very memorable and the nostalgia of them Is the reason for the large value.
+
+
+
+# Multivariate Analysis
+
+### Talk about some of the relationships you observed in this part of the investigation. Were there features that strengthened each other in terms of looking at your feature(s) of interest?
+There were very few features that strengthened eachother when plotted together.  One of these was genre by year by rank. Almost every genre category has a lower rank the newer a book is. Young adult and classical are exceptions for this.   The rest of the genres,particularly fantasy, tend to filter into the very high ranks after the year 2000.  The value (popularity(rank)/quality(rating)) of a book also has a very large amount of low scores around the year 2000.
+
+Another group of features that saw a small correlation was Value by Year by Length.   Longer books started to get much higher value scores around the 1980's.  This may be due to the increase in longer genre books (such as History and Fantasy) that have seen a large increase in popularity in the past 20 years.
+
+### Were there any interesting or surprising interactions between features?
+   It is surprising that there is not a more definite correlation anywhere in the dataset.  When initally loading the data I had predicted that there would be a very distinct difference in popular genres over years and the length by genre.  Although there is a slight relationship,  it is nowhere near what I expected.    
+   
+   It is interesting though that longer books tend to have a better rank and higher rating than shorter books.
+   
+------
+```{r echo = FALSE, message=F, warning=F}
+#Math For x amounts in intro 
+
+fan10 <- count(subset(gr, 
+                      genre == 'Fantasy' & 
+                        year == 2010)) 
+fan90 <- count(subset(gr, 
+                      genre == 'Fantasy' & 
+                        year == 1990))
+#fan10/fan90
+
+rom10 <- count(subset(gr, 
+                      genre == 'Romance' & 
+                        year == 2010))  
+rom90 <-  count(subset(gr, 
+                       genre == 'Romance' & 
+                         year == 1990))
+#rom10/rom90
+
+ya10 <- count(subset(gr, 
+                     genre == 'Young Adult' & 
+                       year == 2010)) 
+ya90 <- count(subset(gr, 
+                     genre == 'Young Adult' & 
+                       year == 1990))
+#ya10/ya90
+
+```
+# Final Plots and Summary
+GoodReads.com website contains a page for users to vote for the best books of all time.  This list contains over 30,000 books from almost 140,000 voters. From this list I discovered an interesting trend in book genre popularity (yearly release count on list).
+
+There are three Book Genres; Fantasy, Romance, and Young Adult, that see a large increase in yearly count in the 2000's.   Comparing books per year for the years 1990 and 2010, there is a x6, x19, and x22 increase respectively! These are the only genres to see such an increase. 
+
+
+Before looking into genre popularity, here are a few interesting observations of the dataset not delved into in the final plots:
+
+-There is an overall 80% increase in yearly book releases in the past 15 years.  
+-Most popular books are between 250 and 350 pages long.  
+-Fantasy and Fiction are the most popular book genres.  
+-Classics are the highest rated books  
+-Historical books are the longest  
+-There is a small correlation between book length and rating  
+
+
+### Plot One
+```{r echo=FALSE, Plot_One,fig.width=16, fig.height=9, message=F, warning=F}
+#Fantasy histo
+f1 <- ggplot(aes(x = year), 
+             data = subset(fry, 
+                           genre == 'Fantasy')) +
+  geom_histogram(binwidth = 1,
+                 size = .5) +
+  ggtitle('Fantasy') +
+  xlab('Year') + 
+  ylab('Count') +
+  scale_x_continuous(limits = c(1985, 2015),
+                     breaks = seq(1985, 2015, 5)) +
+  scale_y_continuous(limits = c(0, 220),
+                     breaks = seq(0, 220, 25)) +
+  theme(axis.text = element_text(size = 15),
+        axis.title = element_text(size = 20),
+        plot.title = element_text(size = 25))
+
+#Romance histo
+f2 <- ggplot(aes(x = year), 
+             data = subset(fry, 
+                           genre == 'Romance')) +
+  geom_histogram(binwidth = 1,
+                 size = .5) +
+  ggtitle('Romance') +
+  xlab('Year') + 
+  ylab('Count') +
+  scale_x_continuous(limits = c(1985, 2015),
+                     breaks = seq(1985, 2015, 5)) +
+  scale_y_continuous(limits = c(0, 220),
+                     breaks = seq(0, 220, 25)) +
+  theme(axis.text = element_text(size = 15),
+        axis.title = element_text(size = 20),
+        plot.title = element_text(size = 25))
+
+#YA histo
+f3 <- ggplot(aes(x = year), 
+             data = subset(fry, 
+                           genre == 'Young Adult')) +
+  geom_histogram(binwidth = 1,
+                 size = .5) +
+  ggtitle('Young Adult') +
+  xlab('Year') + 
+  ylab('Count') +
+  scale_x_continuous(limits = c(1985, 2015),
+                     breaks = seq(1985, 2015, 5)) +
+  scale_y_continuous(limits = c(0, 220),
+                     breaks = seq(0, 220, 25)) +
+  theme(axis.text = element_text(size = 15),
+        axis.title = element_text(size = 20),
+        plot.title = element_text(size = 25))
+
+#put together
+grid.arrange(f1, f2, f3, ncol = 3, 
+  main=textGrob("Yearly Genre Releases in GoodReads List", 
+                           gp=gpar(fontsize=30)))
+```
+
+### Description One
+  
+There is a prodigious difference over the past 30 years for Fantasy, Romance, and Young Adult literature genres. Each genre sees an exponential increase starting around year 2000 that peaks around 2010.  
+
+While this rise may be due to an increase in overall releases thanks to the quicker and simpler methods of book publishing available now, why are not all genres seeing a similiar increase? Could there a third party reason to this popularity bloom?
+
+### Plot Two
+```{r echo=FALSE, Plot_Two,fig.width=16, fig.height=12, message=F, warning=F}
+#line plot with movies dates
+ggplot(aes(x = year, 
+           y = count, 
+           color = genre), 
+       data = subset(fry.sub, 
+                     year < 2013)) +
+  geom_line(size = 1.5)  + 
+  geom_point() +
+  geom_vline(xintercept = 2000.75, 
+             color = 'red',   #set vert line
+             linetype = 'longdash', 
+             size = 1.05) +
+  annotate("text", 
+           label ='Lord of the Rings',    #add text
+           x = 2001.25, 
+           y = 190, 
+           size = 6, 
+           color = "red", 
+           angle = 45) +
+  geom_vline(xintercept = 2008, 
+             color = 'blue',     # repeat vvv
+             linetype = 'longdash', 
+             size = 1.05) +
+  annotate("text", 
+           label ='Twilight', 
+           x = 2008.5, 
+           y = 190, 
+           size = 6, 
+           color = "blue", 
+           angle = 45) +
+  geom_vline(xintercept = 2004.5, 
+             color = 'blue',
+             linetype = 'longdash', 
+             size = 1.05) +
+  annotate("text", 
+           label ='Chronicles of Narnia', 
+           x = 2004.75, 
+           y = 190, 
+           size = 6, 
+           color = "blue", 
+           angle = 45) +
+  geom_vline(xintercept = 2001.25, 
+             color = 'red',
+             linetype = 'longdash', 
+             size = 1.05) +
+  annotate("text", 
+           label ='Harry Potter', 
+           x = 2001.75, 
+           y = 178,
+           size = 6, 
+           color = "red", 
+           angle = 45) +
+  geom_vline(xintercept = 2004, 
+             color = '#41A317',
+             linetype = 'longdash', 
+             size = 1.05) +
+  annotate("text", 
+           label ='Notebook', 
+           x = 2004.75, 
+           y = 205, 
+           size = 6, 
+           color = "#41A317", 
+           angle = 45) +
+  geom_vline(xintercept = 2007, 
+             color = '#41A317',
+             linetype = 'longdash', 
+             size = 1.05) +
+  annotate("text", 
+           label ='PS I Love You', 
+           x = 2007.5, 
+           y = 190, 
+           size = 6, 
+           color = "#41A317", 
+           angle = 45) +
+   geom_vline(xintercept = 2005, 
+              color = '#41A317',
+             linetype = 'longdash', 
+             size = 1.05) +
+  annotate("text", 
+           label ='Pride and Prejudice', 
+           x = 2005.25, 
+           y = 160, 
+           size = 6, 
+           color = "#41A317", 
+           angle = 45) +
+  ggtitle('Do Movies Promote Genre Popularity?') +
+  xlab('Year') + 
+  ylab('Yearly Releases') +
+  scale_x_continuous(limits = c(1985, 2012),
+                     breaks = seq(1985, 2012, 5)) +
+  scale_y_continuous(limits = c(0, 220),
+                     breaks = seq(0, 220, 25)) +
+  theme(axis.text = element_text(size = 15),
+        axis.title = element_text(size = 20),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20),
+        plot.title = element_text(size = 25))
+```
+
+### Description Two
+  
+Research of Blockbuster hits based on Novels from the genres of Fantasy, Young Adult, and Romance resulted in a list of seven movies from the 2000's that may be a reason for the massive increase in their popularity increase.  These are movies from the necessary genres that saw good ratings and box office numbers.
+
+The movies are:  
+'Lord of the Rings' 2001 (Fantasy),  
+'Harry Potter' 2001 (Fantasy/Young Adult),   
+Chronicles of Narnia' 2005 (Young Adult),  
+'Twilight' 2008 (Young Adult),  
+'Notebook' 2004 (Romance),  
+'PS I Love You' 2007 (Romance),  
+'Pride and Prejudice' 2005 (Romance).  
+
+It is interesting to see that each of these genres see a massive increase in popularity over the years after a corresponding movie releases. x3 the amount of fantasy novels were released in 2011 compared to 10 years earlier when LOTR and Harry Potter were out in theatres.  Young Adult saw x2.54 increase six years after Chronicles of Narnia, while romance yeilded a x2.52 increase only five years after Notebook and Pride and Prejudice.
+
+Does this increase in popularity and book release count equate to an overall lower quality of book?
+
+### Plot Three
+```{r echo=FALSE, Plot_Three, fig.width=16, fig.height=8,message=F, warning=F}
+#scatter w/ smooths of rank
+ggplot(aes(x = year, 
+           y = rank, 
+           color = genre), 
+       data = fry) +
+  geom_jitter(alpha = .35) +
+  geom_line(stat = 'smooth', 
+            fun.y = 'mean',
+            size = 1.15)   +
+  ggtitle('Average Genre Rank over Time') +
+  xlab('Year') + 
+  ylab('Mean Rank') +
+  scale_x_continuous(limits = c(1985, 2013),       
+                     breaks = seq(1985, 2013, 5)) +
+  coord_cartesian(ylim = c(0000, 25000)) +       
+  annotate("text", 
+           label = round(mean(subset(        #text set
+    fry, genre == 'Fantasy' & 
+      year == 1985)$rank)),                 #subset 
+    x = 1985, 
+    y = 13400,                       # for particular point
+    size = 6, 
+    color = 'red')  +
+  annotate("text", 
+           label = round(mean(subset(       #repeats vvv
+    fry, genre == 'Young Adult' & 
+      year == 1985)$rank)),
+    x = 1985, 
+    y = 12500, 
+    size = 6, 
+    color = 'blue')  +
+  annotate("text", 
+           label = round(mean(subset(
+    fry, genre == 'Romance' & 
+      year == 1985)$rank)),
+    x = 1985, 
+    y = 17400, 
+    size = 6, 
+    color = '#41A317')+
+  annotate("text", 
+           label = round(mean(subset(
+    fry, genre == 'Fantasy' & 
+      year == 2013)$rank)),
+    x = 2013, 
+    y = 15300, 
+    size = 6, 
+    color = 'red')  +
+  annotate("text", 
+           label = round(mean(subset(
+    fry, genre == 'Young Adult' & 
+      year == 2013)$rank)),
+    x = 2013, 
+    y = 12750, 
+    size = 6, 
+    color = 'blue')  +
+  annotate("text", 
+           label = round(mean(subset(
+    fry, genre == 'Romance' & 
+      year == 2013)$rank)),
+    x = 2013, 
+    y = 16500, 
+    size = 6, 
+    color = '#41A317') +
+  theme(axis.text = element_text(size = 15),
+        axis.title = element_text(size = 20),
+        legend.text = element_text(size = 15),
+        legend.title = element_text(size = 20),
+        plot.title = element_text(size = 25))
+```
+
+### Description Three
+Surprisingly, the massive increase in Book Releases for the three genres in question did not result in a large drop of quality across the board. Although fantasy saw a bit of a wave in rank over the past 30 years,  both romance and young adult saw a steady rise in rank. (The lower the rank, the better).
+
+
+# Reflection
+While it can not be definitively said that movie renditions or mainstream media application of books equates to an increase in the respective literature genre,  it is hard to deny there is some influence.   There is a large peak of interest in Fantasy, Young Adult, and Romance books over the past 15 years that can partially be in thanks to popular movies based on books from those genres.
+
+Only a handful of years after the releases of hits like 'Lord of the Rings', 'Harry Potter', and 'Twilight', and the Fantasy and young Adult literature markets are seeing multiple times more popular releases per year than in the years previous.  Atleast, according to GoodReads.com voters.
+
+It was very difficult to find any significant relationship in the data (most of which had a less than .1 correlation).  although I struggled with this problem, it was interesting to find such an extreme change in popularity of books around the early 200's in only three genres. I hope to have the time to explore more into the movie-book relationship in the future.
