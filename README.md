@@ -1,2 +1,2 @@
 # udacity_nd002
-Projects for Udacity nd002 (data analysis)
+Projects for Udacity's Data Analysis Nanodegree.
