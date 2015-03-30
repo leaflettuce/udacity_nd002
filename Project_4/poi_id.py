@@ -146,21 +146,21 @@ features_train,features_test, labels_train,labels_test = train_test_split(featur
 ################################
 # classifying
 ################################
-#GaussianNB
+#GaussianNB   A- 23 P-14 R-95
 #from sklearn.naive_bayes import GaussianNB
 #clf = GaussianNB()
 #clf.fit(features_train, labels_train)
 
-#SVM
-from sklearn import svm, grid_search
+#SVM   A-  R-  P-
+#from sklearn import svm, grid_search
 #parameters = {'C':[1, 5, 10]}
 #svr = svm.LinearSVC()
 #clf = grid_search.GridSearchCV(svr, parameters)
 #clf = svm.LinearSVC(multi_class='crammer_singer')
 #clf.fit(features_train, labels_train)
 
-#RandomForest   #r- . p-. f1-.
-from sklearn.ensemble import RandomForestClassifier
+#RandomForest   A- 87 P- 55 R- 17
+#from sklearn.ensemble import RandomForestClassifier
 #from sklearn import grid_search
 #clf = RandomForestClassifier(n_estimators=30, min_samples_split=5)
 #parameters = {'min_samples_split':[2,3,4,5,6], 'n_estimators': [10,20]}
@@ -168,7 +168,7 @@ from sklearn.ensemble import RandomForestClassifier
 #clf = grid_search.GridSearchCV(random, parameters)
 #clf.fit(features_train, labels_train)
 
-#adaboost
+#adaboost  A- 85 P- 39 R- 32
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn import grid_search
 #ada = AdaBoostClassifier()
@@ -178,14 +178,14 @@ clf = AdaBoostClassifier(n_estimators=50, random_state=138)
 clf.fit(features_train, labels_train)
 
 
-#K-Means_clustering #r-.28. p-..21 f1-.24
+#K-Means_clustering R-.28. P-.21 f1-.24
 #from sklearn.cluster import KMeans
 #clf = KMeans(n_clusters = 2)
 #clf.fit(features_train, labels_test)
 #print clf.predict(features_test)
 #print labels_test
 
-#DecisionTree  #r- .32 p- .33 f1 - .33
+#DecisionTree  #R- .32 P- .33 f1 - .33
 from sklearn import grid_search, tree
 #parameters = {'min_samples_split':[2,3,4,5,6,7,8,9], 'min_samples_leaf':[1,2,3], 'random_state':[None, 0, 42] }
 #tree = tree.DecisionTreeClassifier()
