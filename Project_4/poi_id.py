@@ -67,8 +67,12 @@ from sklearn.feature_selection import SelectPercentile, f_classif
 selector = SelectPercentile(f_classif, percentile=30)
 selector.fit(features, labels)
 features = selector.transform(features)
+print selector._get_support_mask()
 print selector.scores_
 
+## f_classif scores -> (salary, 18.3)(bonus, 20.8)(excersied stock options, 24.8)
+# (to poi percentage, 16.6)(long term incentive, 9.9)(expenses,6.1)
+# (director fees, 2.12)(total payments, 8.8)
 ################################
 # scaling
 ################################
@@ -89,28 +93,28 @@ scaler = MinMaxScaler()
 from sklearn import linear_model
 
 #outlier class (from lessons)
-def outlierCleaner(predictions, ages, net_worths):
-    cleaned_data = []
-    errors = (net_worths - predictions)**2
-    cleaned_data = zip(ages, net_worths, errors)
-    cleaned_data = sorted(cleaned_data, key = lambda x: x[2], reverse = True)
-    limit = int(len(net_worths)*0.1)
-    return cleaned_data[limit:]
-
-from sklearn import svm
-#reg = GaussianNB()
-#reg.fit(features, labels)
-reg = svm.LinearSVC()
-reg.fit(features, labels)
-
-
-cleaned_data = []
-try:
-    predictions = reg.predict(features)
-    cleaned_data = outlierCleaner(predictions, features, labels)
-except NameError:
-    print "your regression object doesn't exist, or isn't name reg"
-    print "can't make predictions to use in identifying outliers"
+# def outlierCleaner(predictions, ages, net_worths):
+#     cleaned_data = []
+#     errors = (net_worths - predictions)**2
+#     cleaned_data = zip(ages, net_worths, errors)
+#     cleaned_data = sorted(cleaned_data, key = lambda x: x[2], reverse = True)
+#     limit = int(len(net_worths)*0.1)
+#     return cleaned_data[limit:]
+#
+# from sklearn import svm
+# #reg = GaussianNB()
+# #reg.fit(features, labels)
+# reg = svm.LinearSVC()
+# reg.fit(features, labels)
+#
+#
+# cleaned_data = []
+# try:
+#     predictions = reg.predict(features)
+#     cleaned_data = outlierCleaner(predictions, features, labels)
+# except NameError:
+#     print "your regression object doesn't exist, or isn't name reg"
+#     print "can't make predictions to use in identifying outliers"
 
 
 #try:
@@ -121,8 +125,8 @@ except NameError:
 #plt.show()
 
 #print len(features)
-features_cleaned = numpy.array([e[0] for e in cleaned_data])
-labels_cleaned = numpy.array([e[1] for e in cleaned_data])
+# features_cleaned = numpy.array([e[0] for e in cleaned_data])
+# labels_cleaned = numpy.array([e[1] for e in cleaned_data])
 
 #try:
 #    plt.plot(features_cleaned, reg.predict(features_cleaned), color="blue")
@@ -132,8 +136,8 @@ labels_cleaned = numpy.array([e[1] for e in cleaned_data])
 #plt.show()
 
 #set features/labels to cleaned set
-features = features_cleaned
-labels = labels_cleaned
+# features = features_cleaned
+# labels = labels_cleaned
 
 
 #print len(features)
@@ -146,6 +150,7 @@ features_train,features_test, labels_train,labels_test = train_test_split(featur
 ################################
 # classifying
 ################################
+
 #GaussianNB   A- 23 P-14 R-95
 #from sklearn.naive_bayes import GaussianNB
 #clf = GaussianNB()
@@ -223,13 +228,13 @@ false_pos = 0
 false_neg = 0
 #find counts
 for num in range(0,len(predict)):
-    if predictions[num] == 1 and labels_test[num]== 1:
+    if predict[num] == 1 and labels_test[num]== 1:
         true_pos += 1
-    if predictions[num] == 0 and labels_test[num]== 0:
+    if predict[num] == 0 and labels_test[num]== 0:
         true_neg += 1
-    if predictions[num] == 1 and labels_test[num]== 0:
+    if predict[num] == 1 and labels_test[num]== 0:
         false_pos += 1
-    if predictions[num] == 0 and labels_test[num]== 1:
+    if predict[num] == 0 and labels_test[num]== 1:
         false_neg += 1
 #prints
 print 'True Positives: %d' %true_pos

@@ -1,0 +1,12 @@
+clustering
+-http://www.naftaliharris.com/blog/visualizing-k-means-clustering/
+
+
+programming help
+-http://napitupulu-jon.appspot.com/
+
+-numpy reshape
+http://docs.scipy.org/doc/numpy/reference/generated/numpy.reshape.html
+
+-sklearn Docs
+http://scikit-learn.org/stable/documentation.html
