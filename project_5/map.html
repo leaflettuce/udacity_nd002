@@ -14,7 +14,7 @@ body{
 }
 
 #states {
-  fill: lightsteelblue;
+  
 }
 
 
@@ -49,6 +49,8 @@ h2{
 	font-weight: 600;
 	margin: 1.8px;
 }
+
+
 	</style>
 </head>
 
@@ -57,23 +59,24 @@ h2{
 <script src="http://d3js.org/queue.v1.min.js"></script>
 <script src="http://d3js.org/topojson.v1.min.js"></script>
 <script>
-	//set vars
-var setYear = 'total'
+	//set vars	
+var setYear = '2014'
 
 var width = 960,
     height = 500,
     centered;
+	
 	//set title
 d3.select('body')
 			.append('h2')
-			.text('Location of Shows ('+setYear+')');
+			.text('Frequency of Shows');
 		
 		//change text based on year
 function displayYear(d) {
-	setYear = d;
+	setYear = d.attr('value');
 	d3.select('h2')
 		.text('Location of Shows ('+setYear+')');
-}
+};
 
 			
 	//set projection
@@ -84,7 +87,12 @@ var projection = d3.geo.albersUsa()
 var path = d3.geo.path()
     .projection(projection);
 	
-	
+		//set color scaler
+var color = d3.scale.threshold()
+            .domain([1,2,5,10,15,20]) 
+            .range(["#fef0d9", "#fdd49e", "#fdbb84", "#fc8d59", "#d7301f", '#990000']);
+
+			
 	//initialize background rect
 var svg = d3.select("body").append("svg")
     .attr("width", width)
@@ -94,36 +102,54 @@ svg.append("rect")
     .attr("width", width)
     .attr("height", height)
     .on("click", clicked);
+	
 	//create g
 var g = svg.append("g");
 
-var states_list = ['WA', 'MT', 'ID', 'ND', 'MN', 'ME', 'MI', 'WI', 'OR', 'SD', 'NH', 'VT', 'NY', 'WY', 'IA', 'NE', 'MA', 'IL', 'PA', 'CT', 'RI', 'CA', 'UT', 'NV', 'OH', 'IN', 'NJ', 'CO', 'WV', 'MO', 'KS', 'DE', 'MD', 'VA', 'KY', 'DC', 'AZ', 'OK'
-, 'NM', 'TN', 'NC', 'TX', 'AR', 'SC', 'AL', 'GA', 'MS', 'LA', 'FL', 'HI', 'AK']
+			//state ordered according to us.json order
+var states_list = ['WA', 'MT', 'ID', 'ND', 'MN', 'ME', 'MI', 'WI', 'OR', 'SD', 'NH', 'VT', 'NY', 'WY', 'IA', 'NE', 'MA', 'IL', 'PA', 'CT', 'RI', 'CA', 'UT', 'NV', 'OH', 'IN', 'NJ', 'CO', 'WV', 'MO', 'KS', 'DE', 'MD', 'VA', 'KY', 'DC', 'AZ', 'OK', 'NM', 'TN', 'NC', 'TX', 'AR', 'SC', 'AL', 'GA', 'MS', 'LA', 'FL', 'HI', 'AK']
 
-	//import us map and set
-d3.json("us.json", function(error, us) {
+var rateById = d3.map();
+
+	//import data and queue
+queue()
+  .defer(d3.json, "us.json")
+  .defer(d3.tsv, "show_test.tsv")
+  .await(ready);
+
+  function ready(error, map, data) {
+   var rateById = {};
+		//set rateById keys, values
+   data.forEach(function(d) {
+    rateById[d.state] = +d.count;
+  });
+
+  //Drawing Choropleth
   g.append("g")
-      .attr("id", "states")
-    .selectAll("path")
-      .data(topojson.feature(us, us.objects.states).features)
-    .enter()
-	.append("path")
-      .attr("d", path)
-	  .attr('id', function(d, i){
+  .attr("class", "region")
+  .selectAll("path")
+  .data(topojson.feature(map, map.objects.states).features)
+  .enter().append("path")
+  .attr("d", path)
+			//set state id's
+  .attr('id', function(d, i){
 		return states_list[i];
 	  })
-	  .attr('class', 'area')
-      .on("click", clicked);
-	  
-  g.append("path")
-      .datum(topojson.mesh(us, us.objects.states, function(a, b) { return a !== b; }))
+			//fill via state count
+  .style("fill", function(d) {
+    return color(rateById[d3.select(this).attr('id')]); 
+  })
+  .on("click", clicked);
+  
+				//sets borders
+   g.append("path")
+      .datum(topojson.mesh(map, map.objects.states, function(a, b) { return a !== b; }))
       .attr("id", "state-borders")
       .attr("d", path);
-});
-	//set state abbr
-	
-	//set buttons
-var buttonNames = ["2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", "total"]
+  };
+  
+	//set year buttons
+var buttonNames = ["2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014"]
 d3.select('body')
 		.append('p')
 		.selectAll('input')
@@ -133,17 +159,9 @@ d3.select('body')
 		.attr('type', 'button')
 		.attr('class', 'button')
 		.attr('value', function(d){return d;})
-		.attr('onclick', displayYear(d));
+		.on('click', displayYear);
 		
-////////////////////////////////////////////////////
-	//import show info
 
-		//set fills?
-		
-		
-//////////////////////////////////////////////////		
-		
-		
 	//on click function
 function clicked(d) {
   var x, y, k;
