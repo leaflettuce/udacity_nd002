@@ -13,10 +13,10 @@ body{
   stroke-width: 5;
 }
 
-#states {
-  
+text.popup {
+	font-family: 'helvetica';
+	font-size: 42px;
 }
-
 
 #states .active {
   opacity: .75;
@@ -31,10 +31,17 @@ body{
   pointer-events: none;
 }
 
+div.tooltip {
+	width: 158px;
+	background-color: rgba(254,240,217, 0.8);
+	border-radius: 5px;
+    border: 2px solid black;
+    padding: 3px; 
+}
 
-h2{
+h1{
 		text-align: center;
-		font-size: 30px;
+		font-size: 32px;
 		font-family: Helvetica;
 	}
 
@@ -60,7 +67,7 @@ h2{
 <script src="http://d3js.org/topojson.v1.min.js"></script>
 <script>
 	//set vars	
-var setYear = '2014'
+var yearSet = '2014'
 
 var width = 960,
     height = 500,
@@ -68,15 +75,8 @@ var width = 960,
 	
 	//set title
 d3.select('body')
-			.append('h2')
-			.text('Frequency of Shows');
-		
-		//change text based on year
-function displayYear(d) {
-	setYear = d.attr('value');
-	d3.select('h2')
-		.text('Location of Shows ('+setYear+')');
-};
+			.append('h1')
+			.text('Where TDWP play shows');
 
 			
 	//set projection
@@ -87,11 +87,27 @@ var projection = d3.geo.albersUsa()
 var path = d3.geo.path()
     .projection(projection);
 	
+
+	//legend vars
+var legend_labels = ["0", "1", "2-4", "5-9", "10-14", "15+"]
+
+//yearTotal
+var yearTotal = 106;
+//total for year text
+var total = ' Total : ' + yearTotal	
+
+	//tooltip vars
+var div = d3.select("body").append("div")   
+  .attr("class", "tooltip")               
+  .style("opacity", 1)
+  .text(' Year : ' + yearSet + ' |' + total);
+
 		//set color scaler
 var color = d3.scale.threshold()
             .domain([1,2,5,10,15,20]) 
             .range(["#fef0d9", "#fdd49e", "#fdbb84", "#fc8d59", "#d7301f", '#990000']);
 
+var rateById = {};
 			
 	//initialize background rect
 var svg = d3.select("body").append("svg")
@@ -114,15 +130,15 @@ var rateById = d3.map();
 	//import data and queue
 queue()
   .defer(d3.json, "us.json")
-  .defer(d3.tsv, "show_test.tsv")
+  .defer(d3.csv, "show_fin.csv")
   .await(ready);
 
   function ready(error, map, data) {
-   var rateById = {};
 		//set rateById keys, values
    data.forEach(function(d) {
+   if (d.year == yearSet){
     rateById[d.state] = +d.count;
-  });
+  }});
 
   //Drawing Choropleth
   g.append("g")
@@ -139,8 +155,26 @@ queue()
   .style("fill", function(d) {
     return color(rateById[d3.select(this).attr('id')]); 
   })
-  .on("click", clicked);
+  .on("click", clicked)
+		
+		//tooltip
+  .on("mouseover", function(d) {
+    d3.select(this).transition().duration(300).style("opacity", .8);
+    div.transition().duration(300)
+    .style("opacity", 1)
+    div.text(' Year : ' + yearSet + ' | ' + d3.select(this).attr('id') + " : " + rateById[d3.select(this).attr('id')])
+    .style("left", (d3.event.pageX) + "px")
+    .style("top", (d3.event.pageY -30) + "px");
+  })
+  .on("mouseout", function() {
+    d3.select(this)
+    .transition().duration(300).style("opacity", 1);
+    div.transition().duration(300)
+	div.text(' Year : ' + yearSet + ' | ' + 'Total : ' + yearTotal);
+  });
   
+  yearTotal = rateById['total'];
+  div.text(' Year : ' + yearSet + ' | ' + ' Total' + " : " + yearTotal);
 				//sets borders
    g.append("path")
       .datum(topojson.mesh(map, map.objects.states, function(a, b) { return a !== b; }))
@@ -159,9 +193,39 @@ d3.select('body')
 		.attr('type', 'button')
 		.attr('class', 'button')
 		.attr('value', function(d){return d;})
-		.on('click', displayYear);
+		.on('click', function(d) {
+			yearSet = d3.select(this).attr('value');
+			queue()
+				.defer(d3.json, "us.json")
+				.defer(d3.csv, "show_fin.csv")
+				.await(ready);
+			div.text(' Year : ' + yearSet + ' | ' + ' Total' + " : " + yearTotal);
+			});
+
+		
+//Adding legend for our Choropleth
+  var legend = g.selectAll("g.legend")
+  .data([0, 1, 2, 5, 10, 15])
+  .enter().append("g")
+  .attr("class", "legend");
+
+  var ls_w = 20, ls_h = 20;
+
+  legend.append("rect")
+  .attr("x", 20)
+  .attr("y", function(d, i){ return height - (i*ls_h) - 2*ls_h;})
+  .attr("width", ls_w)
+  .attr("height", ls_h)
+  .style("fill", function(d, i) { return color(d); })
+  .style("opacity", 1);
+
+  legend.append("text")
+  .attr("x", 50)
+  .attr("y", function(d, i){ return height - (i*ls_h) - ls_h - 4;})
+  .text(function(d, i){ return legend_labels[i]; });
 		
 
+		
 	//on click function
 function clicked(d) {
   var x, y, k;
@@ -171,12 +235,32 @@ function clicked(d) {
     x = centroid[0];
     y = centroid[1];
     k = 4;
+	
+		//popup
+	d3.select('text.popup')
+	.transition()
+    .duration(250)
+	.remove()
+	var popup = svg.append("text")
+    .attr("class", "popup")
+	.attr("x", 435)
+	.attr("y", 255)
+	.style('opacity', 0)
+	popup.text(d3.select(this).attr('id') + " : " + rateById[d3.select(this).attr('id')])
+	.transition()
+    .duration(1200)
+	.style('opacity', 1);
+
     centered = d;
   } else {    //if centered -> back to initial
     x = width / 2;
     y = height / 2;
     k = 1;
-    centered = null;
+    centered = null
+	d3.select('text.popup')
+	.transition()
+    .duration(250)
+	.remove();
   }
   
   g.selectAll("path")
@@ -187,6 +271,13 @@ function clicked(d) {
       .attr("transform", "translate(" + width / 2 + "," + height / 2 + ")scale(" + k + ")translate(" + -x + "," + -y + ")")
       .style("stroke-width", 1.5 / k + "px");
 }
+
+d3.select('body')
+	.append('p')
+	.append('text')
+	.text("*(Total's include shows in Canada)")
+	.style('font-size', '15px')
+	.style('font-family', 'helvetica');
 
 </script>
 </body>
