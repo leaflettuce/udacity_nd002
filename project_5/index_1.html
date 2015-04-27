@@ -157,7 +157,7 @@ queue()
   })
   .on("click", clicked)
 		
-		//tooltip
+		//mouseover bring up text tooltip//state
   .on("mouseover", function(d) {
     d3.select(this).transition().duration(300).style("opacity", .8);
     div.transition().duration(300)
@@ -166,6 +166,7 @@ queue()
     .style("left", (d3.event.pageX) + "px")
     .style("top", (d3.event.pageY -30) + "px");
   })
+	//mouse out   tooltip/state
   .on("mouseout", function() {
     d3.select(this)
     .transition().duration(300).style("opacity", 1);
@@ -189,7 +190,7 @@ d3.select('body')
 		.selectAll('input')
 		.data(buttonNames)
 		.enter()
-		.append('input')
+		.append('input')    //attr and styles 
 		.attr('type', 'button')
 		.attr('class', 'button')
 		.attr('value', function(d){return d;})
