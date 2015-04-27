@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<head>
+	<style>
+body{
+	background-color: grey;
+}
+	
+.background {
+  fill: none;
+  pointer-events: all;
+  stroke: black;
+  stroke-width: 5;
+}
+
+text.popup {
+	font-family: 'Arial';
+	font-size: 42px;
+}
+
+rect.poprect {
+	background-color: rgba(254,240,217, 0.8);
+	border-radius: 5px;
+    border: 2px solid black;
+    padding: 3px; 
+}
+
+#states .active {
+  opacity: .75;
+}
+
+	
+#state-borders {
+  fill: none;
+  stroke: grey;
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+div{
+	font-size: 20px;
+	font-family: Arial;
+}
+
+h1{
+		text-align: center;
+		font-size: 28px;
+		font-family: Arial;
+	}
+
+.button {
+	width: 6.5em;
+	height: 2em;
+	border-radius: 5px; 
+	-moz-border-radius: 5px; 
+	-webkit-border-radius: 5px; 
+	border: 2px solid #000000;
+	font-size: 14px;
+	font-weight: 600;
+	margin: 1.8px;
+}
+
+
+	</style>
+</head>
+
+<body> 
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://d3js.org/queue.v1.min.js"></script>
+<script src="http://d3js.org/topojson.v1.min.js"></script>
+<script>
+	//set vars	
+var yearSet = '2006'
+
+var width = 960,
+    height = 500,
+    centered;
+	
+	//set title
+d3.select('body')
+			.append('h1')
+			.html('<i>The Devil Wears Prada</i> Show Frequency by State');
+		
+			
+	//set projection
+var projection = d3.geo.albersUsa()
+    .scale(1070)
+    .translate([width / 2, height / 2]);
+	//set path
+var path = d3.geo.path()
+    .projection(projection);
+	
+
+	//legend vars
+var legend_labels = ["0", "1", "2-4", "5-9", "10-14", "15+"]
+
+//yearTotal
+var yearTotal = 106;
+//total for year text
+var total = ' Total : ' + yearTotal	
+
+	//tooltip vars
+var div = d3.select("body").append("div")   
+  .attr("class", "tooltip")               
+  .style("opacity", 1)
+  .text(' Year : ' + yearSet + ' |' + total);
+  
+
+		//set color scaler
+var color = d3.scale.threshold()
+            .domain([1,2,5,10,15,20]) 
+            .range(["#fef0d9", "#fdd49e", "#fdbb84", "#fc8d59", "#d7301f", '#990000']);
+
+var rateById = {};
+			
+	//initialize background rect
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+svg.append("rect")
+    .attr("class", "background")
+    .attr("width", width)
+    .attr("height", height);
+	
+	//create g
+var g = svg.append("g");
+
+			//state ordered according to us.json order
+var states_list = ['WA', 'MT', 'ID', 'ND', 'MN', 'ME', 'MI', 'WI', 'OR', 'SD', 'NH', 'VT', 'NY', 'WY', 'IA', 'NE', 'MA', 'IL', 'PA', 'CT', 'RI', 'CA', 'UT', 'NV', 'OH', 'IN', 'NJ', 'CO', 'WV', 'MO', 'KS', 'DE', 'MD', 'VA', 'KY', 'DC', 'AZ', 'OK', 'NM', 'TN', 'NC', 'TX', 'AR', 'SC', 'AL', 'GA', 'MS', 'LA', 'FL', 'HI', 'AK']
+
+
+var rateById = d3.map();
+
+	//import data and queue
+queue()
+  .defer(d3.json, "us.json")
+  .defer(d3.csv, "show_fin.csv")
+  .await(ready);
+
+  function ready(error, map, data) {
+		//set rateById keys, values
+   data.forEach(function(d) {
+   if (d.year == yearSet){
+    rateById[d.state] = +d.count;
+  }});
+
+  //Drawing Choropleth
+  g.append("g")
+  .attr("class", "region")
+  .selectAll("path")
+  .data(topojson.feature(map, map.objects.states).features)
+  .enter().append("path")
+  .attr("d", path)
+			//set state id's
+  .attr('id', function(d, i){
+		return states_list[i];
+	  })
+			//fill via state count
+  .style("fill", function(d) {
+    return color(rateById[d3.select(this).attr('id')]); 
+  })
+		
+		//tooltip
+  .on("mouseover", function(d) {
+    d3.select(this).transition().duration(300).style("opacity", .75);
+    div.transition().duration(300)
+    .style("opacity", 1)
+	
+	
+	//popup
+	d3.select('text.popup')
+	.remove()
+	
+	//popup background set
+	var poprect = svg.append('rect')
+		.attr('class', 'poprect')
+		.attr("x", 770)
+		.attr("y", 355)
+		.attr('rx', 5)
+		.attr('ry', 5)
+		.style('opacity', 0)
+		.style('fill', color(rateById[d3.select(this).attr('id')]))
+		.attr('width', 150)
+		.attr('height', 50)
+		.style('stroke', 'black')
+		.style('stroke-width', 3)
+		.transition()
+		.duration(150)
+		.style('opacity', .9);
+		
+		//popup text
+	var popup = svg.append("text")
+    .attr("class", "popup")
+	.attr("x", 775)
+	.attr("y", 395)
+	.style('opacity', 0)
+	popup.text(d3.select(this).attr('id') + " : " + rateById[d3.select(this).attr('id')])
+	.transition()
+    .duration(150)
+	.style('opacity', 1);
+	
+  })
+  
+  .on("mouseout", function(d) {
+    d3.select(this)
+    .transition().duration(300).style("opacity", 1);
+    d3.select('text.popup')
+	.remove()
+	d3.select('rect.poprect')
+	.remove()
+  })
+  
+  yearTotal = rateById['total'];
+  div.text(' Year : ' + yearSet + ' | ' + ' Total' + " : " + yearTotal);
+				//sets borders
+   g.append("path")
+      .datum(topojson.mesh(map, map.objects.states, function(a, b) { return a !== b; }))
+      .attr("id", "state-borders")
+      .attr("d", path);
+  };
+  
+	//set year buttons
+var buttonNames = ["2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014"]
+d3.select('body')
+		.append('p')
+		.selectAll('input')
+		.data(buttonNames)
+		.enter()
+		.append('input')
+		.attr('type', 'button')
+		.attr('class', 'button')
+		.attr('value', function(d){return d;})
+		d3.selectAll('input.button').style('background-color', "#fef0d9")
+				.style('opacity', .8);
+		d3.select('input.button').style('background-color', '#fdd49e')
+			.style('opacity', .8)
+		//on button click
+		d3.selectAll('input.button').on('click', function(d) {
+			yearSet = d3.select(this).attr('value');
+			d3.selectAll('input.button').style('background-color', "#fef0d9")
+				.style('opacity', .8);
+			d3.select(this).style('background-color', '#fdd49e')
+			   .style('opacity', .8);
+			queue()
+				.defer(d3.json, "us.json")
+				.defer(d3.csv, "show_fin.csv")
+				.await(ready);
+			div.text(' Year : ' + yearSet + ' | ' + ' Total' + " : " + yearTotal);
+			});
+
+		
+//Adding legend for our Choropleth
+  var legend = g.selectAll("g.legend")
+  .data([0, 1, 2, 5, 10, 15])
+  .enter().append("g")
+  .attr("class", "legend");
+
+  var ls_w = 20, ls_h = 20;
+
+  legend.append("rect")
+  .attr("x", 20)
+  .attr("y", function(d, i){ return height - (i*ls_h) - 2*ls_h;})
+  .attr("width", ls_w)
+  .attr("height", ls_h)
+  .style("fill", function(d, i) { return color(d); })
+  .style("opacity", 1);
+
+  legend.append("text")
+  .attr("x", 50)
+  .attr("y", function(d, i){ return height - (i*ls_h) - ls_h - 4;})
+  .text(function(d, i){ return legend_labels[i]; });
+		
+
+		//comments
+d3.select('body')
+	.append('p')
+	.append('text')
+	.attr('class', 'comments')
+	.html("*<a href='http://www.tdwpband.com'><i>The Devil Wears Prada</i></a> is a metal band from Chicago, IL." 
+			+  "<br/>" + 
+			"*Counts according to <a href='http://www.songkick.com/'><i>www.songkick.com</i></a>." )
+	.style('font-size', '15px')
+	.style('font-family', 'Arial')
+	.attr("xlink:href", 'http://www.tdwpband.com');
+
+</script>
+</body>
