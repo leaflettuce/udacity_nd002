@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<head>
+<meta charset="utf-8">
+	<style>
+body{
+	background-color: grey;
+}
+	
+.background {
+  fill: none;
+  pointer-events: all;
+  stroke: black;
+  stroke-width: 5;
+}
+
+text.popup {
+	font-family: 'Arial';
+	font-size: 42px;
+}
+
+rect.poprect {
+	background-color: rgba(254,240,217, 0.8);
+	border-radius: 5px;
+    border: 2px solid black;
+    padding: 3px; 
+}
+
+#states .active {
+  opacity: .75;
+}
+
+	
+#state-borders {
+  fill: none;
+  stroke: grey;
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+div{
+	font-size: 20px;
+	font-family: Arial;
+}
+
+h1{
+		text-align: center;
+		font-size: 28px;
+		font-family: Arial;
+	}
+
+h3{
+		text-align: center;
+		font-size: 24px;
+		font-family: Arial;
+	}
+
+.button {
+	width: 6.5em;
+	height: 2em;
+	border-radius: 5px; 
+	-moz-border-radius: 5px; 
+	-webkit-border-radius: 5px; 
+	border: 2px solid #000000;
+	font-size: 14px;
+	font-weight: 600;
+	margin: 1.8px;
+}
+
+
+	</style>
+</head>
+
+<body> 
+<script src="http://d3js.org/d3.v3.min.js"></script>
+<script src="http://d3js.org/queue.v1.min.js"></script>
+<script src="http://d3js.org/topojson.v1.min.js"></script>
+<script>
+	//set vars	
+var yearSet = '2006'
+
+var width = 960,
+    height = 500,
+    centered;
+	
+	//set title
+d3.select('body')
+			.append('h1')
+			.html('<i>The Devil Wears Prada</i> Show Frequency by State');
+		
+			
+	//set projection
+var projection = d3.geo.albersUsa()
+    .scale(1070)
+    .translate([width / 2, height / 2]);
+	//set path
+var path = d3.geo.path()
+    .projection(projection);
+	
+
+	//legend vars
+var legend_labels = ["0", "1", "2-4", "5-9", "10-14", "15+"]
+var legend_labels_total = ["0", "1-4", "5-9", "10-24", "25-49", "50+"]
+
+//yearTotal
+var yearTotal = 106;
+//total for year text
+var total = ' Total : ' + yearTotal	
+
+	//tooltip vars
+var div = d3.select("body").append("div")   
+  .attr("class", "tooltip")               
+  .style("opacity", 1)
+  .text(' Year : ' + yearSet + ' |' + total);
+  
+
+		//set color scaler
+var color = d3.scale.threshold()
+            .domain([1,2,5,10,15,20]) 
+            .range(["#edf8fb", "#bfd3e6", "#9ebcda", "#8c96c6", "#8856a7", '#810f7c']);
+		//total color scale
+var color_total = d3.scale.threshold()
+            .domain([1,5,10,25,50,105]) 
+            .range(["#edf8fb", "#bfd3e6", "#9ebcda", "#8c96c6", "#8856a7", '#810f7c']);
+			
+
+var rateById = {};
+			
+	//initialize background rect
+var svg = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height);
+svg.append("rect")
+    .attr("class", "background")
+    .attr("width", width)
+    .attr("height", height);
+	
+	//create g
+var g = svg.append("g");
+
+			//state ordered according to us.json order
+var states_list = ['WA', 'MT', 'ID', 'ND', 'MN', 'ME', 'MI', 'WI', 'OR', 'SD', 'NH', 'VT', 'NY', 'WY', 'IA', 'NE', 'MA', 'IL', 'PA', 'CT', 'RI', 'CA', 'UT', 'NV', 'OH', 'IN', 'NJ', 'CO', 'WV', 'MO', 'KS', 'DE', 'MD', 'VA', 'KY', 'DC', 'AZ', 'OK', 'NM', 'TN', 'NC', 'TX', 'AR', 'SC', 'AL', 'GA', 'MS', 'LA', 'FL', 'HI', 'AK']
+
+
+var rateById = d3.map();
+
+	//import data and queue
+queue()
+  .defer(d3.json, "us.json")
+  .defer(d3.csv, "show_fin.csv")
+  .await(ready);
+
+  function ready(error, map, data) {
+		//set rateById keys, values
+   data.forEach(function(d) {
+   if (d.year == yearSet){
+    rateById[d.state] = +d.count;
+  }});
+
+  //Drawing Choropleth
+  g.append("g")
+  .attr("class", "region")
+  .selectAll("path")
+  .data(topojson.feature(map, map.objects.states).features)
+  .enter().append("path")
+  .attr("d", path)
+			//set state id's
+  .attr('id', function(d, i){
+		return states_list[i];
+	  })
+			//fill via state count
+  .style("fill", function(d) {
+    if (yearSet == 'final'){return color_total(rateById[d3.select(this).attr('id')]);}
+	else {return color(rateById[d3.select(this).attr('id')]); }
+  })
+		
+		//tooltip
+  .on("mouseover", function(d) {
+    d3.select(this).transition().duration(150).style('stroke-width',4.5).style("stroke", 'lightgrey');
+    div.transition().duration(300)
+    .style("opacity", 1)
+	
+	
+	
+	//popup background set
+	var poprect = svg.append('rect')
+		.attr('class', 'poprect')
+		.attr("x", 770)
+		.attr("y", 355)
+		.attr('rx', 5)   //rounds corners
+		.attr('ry', 5)
+		.style('opacity', 0)
+		.style("fill", d3.select(this).style('fill'))
+		.attr('width', find_len(rateById[d3.select(this).attr('id')].toString()))
+		.attr('height', 50)
+		.style('stroke', 'black')
+		.style('stroke-width', 3)
+		.transition()
+		.duration(150)
+		.style('opacity', .9);
+		
+		//popup text
+	var popup = svg.append("text")
+    .attr("class", "popup")
+	.attr("x", 775)
+	.attr("y", 395)
+	.style('opacity', 0)
+	popup.text(d3.select(this).attr('id') + " : " + rateById[d3.select(this).attr('id')])
+	.transition()
+    .duration(150)
+	.style('opacity', 1);
+	
+  })
+      //mouseout clear
+  .on("mouseout", function(d) {
+    d3.select(this)
+    .transition().duration(300).style('stroke-width',0);
+    d3.select('text.popup')
+	.remove()
+	d3.select('rect.poprect')
+	.remove()
+  })
+         //check and set yearTotal//tooltip
+  yearTotal = rateById['total'];
+  div.text(' Year : ' + find(yearSet) + ' | ' + ' Total' + " : " + yearTotal);
+				//sets borders
+   g.append("path")
+      .datum(topojson.mesh(map, map.objects.states, function(a, b) { return a !== b; }))
+      .attr("id", "state-borders")
+      .attr("d", path);
+  };
+  
+	//set year buttons and inital attr styles
+var buttonNames = ["2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", "Total"]
+d3.select('body')
+		.append('p')
+		.selectAll('input')
+		.data(buttonNames)
+		.enter()
+		.append('input')
+		.attr('type', 'button')
+		.attr('class', 'button')
+		.attr('value', function(d){return d;})
+		d3.selectAll('input.button').style('background-color', "#fef0d9")
+				.style('opacity', .8);
+		d3.select('input.button').style('background-color', '#9ebcda')
+			.style('opacity', .8)
+			
+			
+		//on button click change year and tooltip and button colors
+		d3.selectAll('input.button').on('click', function(d) {
+				//if else for attr value (final == total)
+			if (d3.select(this).attr('value') == 'Total'){yearSet = 'final';}
+			else{yearSet =  d3.select(this).attr('value');}
+			
+			d3.selectAll('input.button').style('background-color', "#fef0d9") 
+				.style('opacity', .8);
+			d3.select(this).style('background-color', '#9ebcda')
+			   .style('opacity', .8);
+			queue()
+				.defer(d3.json, "us.json")
+				.defer(d3.csv, "show_fin.csv")
+				.await(ready);
+			div.text(' Year : ' + find(yearSet) + ' | ' + ' Total' + " : " + yearTotal)
+			
+			d3.selectAll('g.legend').select('text').text(function(d, i){ 
+							if (yearSet == 'final') {return legend_labels_total[i];}
+							else {return legend_labels[i];}  })
+			});
+
+	//sepcify '2006-2014' in place of 'final' from data
+function find(d){
+	if (d=='final')
+		{return '2006-2014';} 
+	else 
+		{return d;}
+};
+	//set length of popup rects
+function find_len(d) {
+	if (d.length == 2) {return 152}
+	else if (d.length == 1) {return 142}
+	else if (d.length == 3) {return 172}
+};	
+
+
+
+	//Adding legend for our Choropleth
+  var legend = g.selectAll("g.legend")
+  .data([0, 1, 2, 5, 10, 15])
+  .enter().append("g")
+  .attr("class", "legend");
+
+  var ls_w = 20, ls_h = 20;
+	//set squares
+  legend.append("rect")
+  .attr("x", 20)
+  .attr("y", function(d, i){ return height - (i*ls_h) - 2*ls_h;})
+  .attr("width", ls_w)
+  .attr("height", ls_h)
+  .style("fill", function(d, i) { return color(d); })
+  .style("opacity", 1);
+	//set text
+  legend.append("text")
+  .attr("x", 50)
+  .attr("y", function(d, i){ return height - (i*ls_h) - ls_h - 4;})
+  .text(function(d, i){ 
+  if (yearSet == 'final') {return legend_labels_total[i];}
+  else {return legend_labels[i];}  });
+  
+
+ d3.select('body')
+	.append('h3')
+	.text('Total Shows per Year');
+ 
+ 
+ 
+  // Line Graph ///////////////////////////////////////////////////////////////////////////
+  
+				//set vars
+		var margin = {top: 30, right: 50, bottom: 30, left: 50};
+		var line_width = 900;
+        var line_height = 200;
+		var radius = 3;
+        var line_color = "steelblue";
+				
+		// Parse the date / time
+		var	parseDate = d3.time.format("%Y").parse;
+ 
+		// Set the ranges
+		var	x = d3.time.scale().range([0, line_width]);
+		var	y = d3.scale.linear().range([line_height, 0]);
+ 
+		// Define the axes
+		var	xAxis = d3.svg.axis().scale(x)
+			.orient("bottom").ticks(9);
+ 
+		var	yAxis = d3.svg.axis().scale(y)
+			.orient("left").ticks(5);
+ 
+		// Define the line
+		var	line = d3.svg.line()
+			.x(function(d) { return x(d.year); })
+			.y(function(d) { return y(d.count); });
+	
+    
+		// Adds the svg canvas
+		var	line_svg = d3.select("body")
+			.append("svg")
+				.attr("width", line_width + margin.left + margin.right)
+				.attr("height", line_height + margin.top + margin.bottom)
+				.attr('class', 'line')
+			.append("g")
+				.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+ 
+		// Get the data
+		d3.csv("line_total.csv", function(error, data) {
+			data.forEach(function(d) {
+				d.year = parseDate(d.year);
+				d.count = +d.count;
+			});
+ 
+			// Scale the range of the data
+			x.domain(d3.extent(data, function(d) { return d.year; }));
+			y.domain([0, d3.max(data, function(d) { return d.count; })]);
+ 
+			// Add the X Axis
+			line_svg.append("g")		
+				.attr("class", "x axis")
+				.attr("transform", "translate(0," + line_height + ")")
+				.call(xAxis);
+ 
+			// Add the Y Axis
+			line_svg.append("g")		
+				.attr("class", "y axis")
+				.call(yAxis);
+				
+				
+			// Add the line path.
+			line_svg.append("path")	
+				.datum(data)
+				.attr("class", "line")
+				.attr("d", line)
+				.attr('stroke', '#9ebcda')
+				.attr('stroke-width', 5)
+				.attr('fill', 'none');
+				
+			//add circles
+			var points = line_svg.append('g')
+				.attr('class', 'line-points');
+	
+			var popup = line_svg.append("text")
+					//append circles
+				points.selectAll('circle')
+						.data(data)
+					    .enter()
+						.append("circle")
+						.attr('id', function(d) { return d.count; })
+						.attr('cx', function(d) { return x(d.year); })
+						.attr('cy', function(d) { return y(d.count); })
+						.attr('r', 7.5)
+						.attr('fill', '#8c96c6')
+								//mouse over circles
+						.on('mouseover', function(d) {
+							var xpos = d3.select(this).attr('cx');
+							var ypos = d3.select(this).attr('cy');
+							
+								//hover tooltip
+							d3.select(this).style('opacity', .7)
+							popup.attr("class", "hovertiptext")
+							.attr("x", xpos)
+							.attr("y", ypos)
+							.style('opacity', 0)
+							.style('font-size', 24)
+							.style('font-family', 'arial')
+						popup.text(d3.select(this).attr('id'))
+								.style('opacity', 1);
+						})
+						
+							//mouseout
+						.on('mouseout', function(d) {
+							d3.select(this).style('opacity', 1)
+							popup.style('opacity', 0);
+						});
+		});
+		
+		
+		//comments///////
+d3.select('body')
+	.append('p')
+	.append('text')
+	.attr('class', 'comments')
+	.html("*<a href='http://www.tdwpband.com'><i>The Devil Wears Prada</i></a> is a metal band from Chicago, IL." 
+			+  "<br/>" + 
+			"*Counts according to <a href='http://www.songkick.com/'><i>www.songkick.com</i></a>." )
+	.style('font-size', '15px')
+	.style('font-family', 'Arial')
+	.attr("xlink:href", 'http://www.tdwpband.com');
+
+
+</script>
+</body>
+</html>
