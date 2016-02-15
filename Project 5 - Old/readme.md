@@ -88,5 +88,5 @@ More Examples
 Color Choices  
 -http://colorbrewer2.org/  
 
-line graph  
+line graph   
 -https://gist.github.com/d3noob/4414436
